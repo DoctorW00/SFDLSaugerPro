@@ -1,0 +1,27 @@
+<RCC>
+    <qresource prefix="/">
+        <file>gfx/add.png</file>
+        <file>gfx/quit.png</file>
+        <file>gfx/start.png</file>
+        <file>gfx/stop.png</file>
+        <file>gfx/ftprush.png</file>
+        <file>gfx/flashfxp.png</file>
+        <file>gfx/winscp.png</file>
+        <file>gfx/filezilla.png</file>
+        <file>gfx/icon.png</file>
+        <file>gfx/folder.png</file>
+        <file>gfx/info.png</file>
+        <file>gfx/grafsauger.jpg</file>
+        <file>gfx/koala.gif</file>
+        <file>snd/koala.mp3</file>
+        <file>gfx/tabbackground.png</file>
+        <file>gfx/splitter.png</file>
+        <file>gfx/menubg.png</file>
+        <file>gfx/gear.png</file>
+        <file>gfx/warning.png</file>
+        <file>gfx/chk.png</file>
+        <file>gfx/warning2.png</file>
+        <file>gfx/rar.png</file>
+        <file>gfx/delete.png</file>
+    </qresource>
+</RCC>
