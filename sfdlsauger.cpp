@@ -554,11 +554,13 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         // clean file name + sub file structure
         if(tabName != data.at(1).split("|").at(1))
         {
+
             fileError = true;
             addLogText("<font color=\"red\">" + tabName + tr(": Datei / Pfaderkenntung nicht möglich. Pfad unterscheidet sich vom Titel. (1)</font>"));
             break;
         }
 
+        /*
         QRegExp s1(data.at(1).split("|").at(1));
         int x1 = files.at(i).split("|").at(0).split(s1).count();
         QString f3 = QString();
@@ -573,6 +575,11 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
             addLogText("<font color=\"red\">" + tabName + tr(": Datei / Pfaderkenntung nicht möglich. Pfad unterscheidet sich vom Titel. (2)</font>"));
             break;
         }
+        */
+
+        QString filePathSplit = files.at(i).split("|").at(0);
+        qint16 pos = filePathSplit.lastIndexOf(QChar('/'));
+        QString f3 = filePathSplit.mid(pos);
 
         if(f3.startsWith("/")) // remove first slash
         {
