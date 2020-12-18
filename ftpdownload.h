@@ -5,6 +5,7 @@
 #include <QMutex>
 #include <QtFtp/QFtp>
 #include <QFile>
+#include <QTcpSocket>
 #include <QEventLoop>
 #include <QNetworkProxy>
 
@@ -38,7 +39,7 @@ signals:
     void finished();
     void error(QString err);
     void statusUpdateFile(QString id, int tableRow, QString statusMsg, int status);
-    void doProgress(QString id, int tableRow, qint64 read, qint64 total, bool overwriteTime);
+    void doProgress(QString id, int tableRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate);
 
 private:
     QStringList data;

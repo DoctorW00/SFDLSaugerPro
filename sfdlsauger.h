@@ -71,6 +71,7 @@ private slots:
     // ftp downloads
     void startDownloadButton();
     void swapStartStopButton(QString id);
+    void disableStartStopButton(QString id);
     void startDownload(QString tabID);
     void stopDownload();
     bool allDownloadsDone(QString id);
@@ -79,7 +80,7 @@ private slots:
     void updateCRC32(QString id, int nRow, QString crc32Data);
     void sfvCheck(QString id);
     QStringList dirFromFilePath(QString filePath);
-    void updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime);
+    void updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate);
     void updateDownloadFileStatus(QString tabID, int nRow, QString statusMsg, int status);
     void downloadError(QString error);
 

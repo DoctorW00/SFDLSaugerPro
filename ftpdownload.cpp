@@ -48,6 +48,7 @@ FTPDownload::~FTPDownload()
     if(_abort == false)
     {
         delete ftp;
+        delete file;
     }
 }
 
@@ -85,18 +86,39 @@ void FTPDownload::process()
 
     file = new QFile(this);
     file->setFileName(dlpath + dlfile);
-    // file->setFileName(dlpath + fileRelativ);
 
-    if(file->open(QIODevice::WriteOnly) && file->isWritable())
+    if(file->size())
     {
-        ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
-        ftp->connectToHost(host, port.toInt());
-        ftp->login(user, pass);
-        ftp->cd(dir);
-        ftp->get(dlfile, file);
-        // file->flush();
-        ftp->close();
-        ftpLoop->exec();
+        // continue download
+        if(file->open(QIODevice::Append) && file->isWritable())
+        {
+
+            ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
+            ftp->connectToHost(host, port.toInt());
+            ftp->login(user, pass);
+            ftp->cd(dir);
+
+            ftp->m_fileSize = file->size(); // set file size
+
+            ftp->get(dlfile, file);
+            ftp->close();
+            ftpLoop->exec();
+        }
+    }
+    else
+    {
+        // download from scratch
+        if(file->open(QIODevice::WriteOnly) && file->isWritable())
+        {
+            ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
+            ftp->connectToHost(host, port.toInt());
+            ftp->login(user, pass);
+            ftp->cd(dir);
+            ftp->m_fileSize = 0;
+            ftp->get(dlfile, file);
+            ftp->close();
+            ftpLoop->exec();
+        }
     }
 
     file->flush();
@@ -158,8 +180,6 @@ void FTPDownload::updateProgress(qint64 read, qint64 total)
 {
     if(_working && !_abort)
     {
-        emit doProgress(id, _tableRow, read, total, false);
+        emit doProgress(id, _tableRow, read, total, false, false);
     }
-
-    // emit doProgress(id, tableRow, read, total);
 }
