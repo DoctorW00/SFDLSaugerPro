@@ -2,8 +2,6 @@
 #define ABOUT_H
 
 #include <QDialog>
-// #include <irrKlang.h>
-
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
 #include <QLabel>
@@ -33,7 +31,6 @@ private slots:
 
 private:
     Ui::About *ui;
-    // irrklang::ISoundEngine* engine = irrklang::createIrrKlangDevice();
     QMediaPlayer *player = new QMediaPlayer(this);
     QMediaPlaylist *playlist = new QMediaPlaylist(this);
     QMovie *movie = new QMovie(this);

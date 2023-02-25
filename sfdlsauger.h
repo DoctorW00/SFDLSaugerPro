@@ -17,6 +17,7 @@
 #include <QHostAddress>
 #include <QRegExp>
 #include <QThread>
+#include <QDesktopWidget>
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -41,8 +42,8 @@ public slots:
 
 private slots:
     void addLogText(QString txt);
-    // void loadSFDL(QString file);
     int addTab(QString tabText);
+    void chkSFDLData(QStringList data, QStringList files);
     void getSFDLData(QStringList data, QStringList files);
     void on_tabWidget_tabCloseRequested(int index);
     void MsgWarning(QString label, QString text);
@@ -67,6 +68,8 @@ private slots:
     void updateTotalDownloadSize(QString id);
     void tblItemChanged(QTableWidgetItem *item);
     void changeCHKBOX(QString id, bool lock);
+    void saveWindowStatus();
+    void loadWindowStatus();
 
     // ftp downloads
     void startDownloadButton();

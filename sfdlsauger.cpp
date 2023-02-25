@@ -5,8 +5,7 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
 {
     ui->setupUi(this);
     setAcceptDrops(true);
-
-    // connect(ui->tabWidget, SIGNAL(currentChanged(int)), this, SLOT(tabSelected()));
+    loadWindowStatus();
 
     ui->textEdit->setLineWrapMode(QTextEdit::NoWrap);
     addLogText(tr("SFDLSauger Pro v") + QString(APP_VERSION) + tr(" geladen und bereit!"));
@@ -41,29 +40,60 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
 
     // set global settings
     devMode = false;
-
-    /*
-    g_downloadRootPath = settingsWindow->_downloadPath;
-    g_crc32Check       = settingsWindow->_crc32Check;
-    g_sfvCheck         = settingsWindow->_sfvCheck;
-    g_unrarPath        = settingsWindow->_unrarPath;
-    g_unrarAutoEtract  = settingsWindow->_unrarAutoEtract;
-    g_unrarAutoDelete  = settingsWindow->_unrarAutoDelete;
-    g_sfdlPasswords    = settingsWindow->_sfdlPasswords;
-    g_ftpProxyHost     = settingsWindow->_ftpProxyHost;
-    g_ftpProxyPort     = settingsWindow->_ftpProxyPort;
-    g_ftpProxyUser     = settingsWindow->_ftpProxyUser;
-    g_ftpProxyPass     = settingsWindow->_ftpProxyPass;
-
-    qDebug() << "g_downloadRootPath: " << g_downloadRootPath;
-    */
-
-
 }
 
 SFDLSauger::~SFDLSauger()
 {
+    saveWindowStatus();
+
     delete ui;
+}
+
+void SFDLSauger::saveWindowStatus()
+{
+    QSettings config(QSettings::IniFormat, QSettings::UserScope, "SFDLSaugerPro", "config");
+    config.beginGroup("window");
+    config.setValue("position", this->geometry());
+    config.setValue("maximized", this->isMaximized());
+    config.endGroup();
+}
+
+void SFDLSauger::loadWindowStatus()
+{
+    QSettings config(QSettings::IniFormat, QSettings::UserScope, "SFDLSaugerPro", "config");
+
+    QDesktopWidget *desktop = QApplication::desktop();
+
+    int screenWidth, width;
+    int screenHeight, height;
+    int x, y;
+    QSize windowSize;
+
+    screenWidth = desktop->width();
+    screenHeight = desktop->height();
+
+    windowSize = size();
+    width = windowSize.width();
+    height = windowSize.height();
+
+    x = (screenWidth - width) / 2;
+    y = (screenHeight - height) / 2;
+    y -= 30;
+
+    config.beginGroup("window");
+
+    QVariant maximized = config.value("maximized").value<QString >();
+
+    if(maximized.toString() == "true")
+    {
+        this->showMaximized();
+    }
+    else
+    {
+        QRect thisRect = config.value("position", QRect(QPoint(x,y),QSize(1024,768))).toRect();
+        setGeometry(thisRect);
+    }
+    config.endGroup();
 }
 
 void SFDLSauger::devModeSwitch()
@@ -236,12 +266,13 @@ void SFDLSauger::quitApp()
 
 void SFDLSauger::loadSFDL(QString file)
 {
-    addLogText(file + tr(" wird geladen!"));
+    addLogText(file + tr(" wird verarbeitet!"));
 
     auto sfdlFile = new sfdl();
     auto thread = new QThread;
 
-    connect(sfdlFile, SIGNAL(sendSFDLData(QStringList,QStringList)), this, SLOT(getSFDLData(QStringList,QStringList)));
+    // connect(sfdlFile, SIGNAL(sendSFDLData(QStringList,QStringList)), this, SLOT(getSFDLData(QStringList,QStringList)));
+    connect(sfdlFile, SIGNAL(sendSFDLData(QStringList,QStringList)), this, SLOT(chkSFDLData(QStringList,QStringList)));
     connect(sfdlFile, SIGNAL(sendWarning(QString,QString)), this, SLOT(MsgWarning(QString,QString)));
     connect(sfdlFile, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
     connect(thread, SIGNAL(started()), sfdlFile, SLOT(readSFDL()));
@@ -273,6 +304,40 @@ void SFDLSauger::loadSFDLConsol(int instanceId, QByteArray message)
         }
     }
 
+}
+
+void SFDLSauger::chkSFDLData(QStringList data, QStringList files)
+{
+    if(!files.count())
+    {
+        addLogText(data.at(1).split("|").at(1) + tr(": Lade FTP-Inhaltsverzeichnis ..."));
+
+        auto listFTP = new FTPListFiles;
+        auto thread = new QThread;
+
+        connect(listFTP, SIGNAL(sendWarning(QString,QString)), this, SLOT(MsgWarning(QString,QString)));
+        connect(listFTP, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
+        connect(listFTP, SIGNAL(sendFTPData(QStringList,QStringList)), this, SLOT(getSFDLData(QStringList,QStringList)));
+
+        listFTP->ftpList(data.at(7).split("|").at(1),           // host
+                         data.at(8).split("|").at(1).toInt(),   // port
+                         data.at(9).split("|").at(1),           // user
+                         data.at(10).split("|").at(1),          // pass
+                         data.at(21).split("|").at(1),          // path
+                         settingsWindow->_ftpProxyHost,
+                         settingsWindow->_ftpProxyPort,
+                         settingsWindow->_ftpProxyUser,
+                         settingsWindow->_ftpProxyPass,
+                         data
+                         );
+
+        listFTP->moveToThread(thread);
+        thread->start();
+    }
+    else
+    {
+        getSFDLData(data, files);
+    }
 }
 
 void SFDLSauger::getSFDLData(QStringList data, QStringList files)
@@ -495,29 +560,6 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         data_tbl->hideRow(21);
     }
 
-    // get file index from ftp server
-    if(!files.count())
-    {
-        addLogText(data.at(1).split("|").at(1) + tr(": Lade FTP-Inhaltsverzeichnis ..."));
-
-        auto listFTP = new FTPListFiles;
-
-        connect(listFTP, SIGNAL(sendWarning(QString,QString)), this, SLOT(MsgWarning(QString,QString)));
-        connect(listFTP, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
-
-        files = listFTP->ftpList(data.at(7).split("|").at(1),           // host
-                                 data.at(8).split("|").at(1).toInt(),   // port
-                                 data.at(9).split("|").at(1),           // user
-                                 data.at(10).split("|").at(1),          // pass
-                                 data.at(21).split("|").at(1),          // path
-                                 tabName,                               // tab id
-                                 settingsWindow->_ftpProxyHost,
-                                 settingsWindow->_ftpProxyPort,
-                                 settingsWindow->_ftpProxyUser,
-                                 settingsWindow->_ftpProxyPass);
-
-    }
-
     // file table
     // int fileColumCount = 15;
     int fileColumCount = 16;
@@ -612,7 +654,6 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         PROGBAR->setMaximum(100);
         PROGBAR->setValue(0);
         PROGBAR->setTextVisible(1);
-        // PROGBAR->setStyleSheet("border: 0px; border-radius: 0px; text-align: center;");
         PROGBAR->setStyleSheet("QProgressBar { border: 1px solid #420000; margin: 1px; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #c52222; width: 1px; margin: 0px; }");
 
         PROGBAR->setObjectName("pbarIn_" + QString::number(i));

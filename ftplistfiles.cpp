@@ -166,6 +166,7 @@ void FTPListFiles::ftpCommandFinished(int, bool error)
     }
 }
 
+/*
 QStringList FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path, QString SFDL,
                                   QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass)
 {
@@ -214,6 +215,58 @@ QStringList FTPListFiles::ftpList(QString ip, int port, QString user, QString pa
 
     return fileList;
 }
+*/
+
+void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
+                                  QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data)
+{
+    // set proxy
+    if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
+    {
+        proxy.setType(QNetworkProxy::Socks5Proxy);
+
+        proxy.setHostName(proxyHost);
+        proxy.setPort(proxyPort.toInt());
+
+        if(!proxyUser.isEmpty() && !proxyPass.isEmpty())
+        {
+            proxy.setUser(proxyUser);
+            proxy.setPassword(proxyPass);
+        }
+
+        QNetworkProxy::setApplicationProxy(proxy);
+    }
+
+    if(user.isEmpty())
+    {
+        user = "anonymous";
+    }
+
+    if(pass.isEmpty())
+    {
+        pass = "anonymous@sfdlsauger.test";
+    }
+
+    if(path.isEmpty())
+    {
+        path = "/";
+    }
+
+    baseIP = ip;
+    basePort = port;
+    baseUser = user;
+    basePass = pass;
+    basePath = path;
+    // baseSFDL = SFDL;
+
+    pathList.clear();
+
+    getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
+
+    // return fileList;
+
+    emit sendFTPData(data, fileList);
+}
 
 void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path)
 {
@@ -261,7 +314,6 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
 
         getFTPIndex(baseIP, basePort, baseUser, basePass, getPath);
     }
-
 }
 
 void FTPListFiles::doListInfo(const QUrlInfo& info)

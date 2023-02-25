@@ -32,8 +32,10 @@ private:
     QNetworkProxy proxy;
 
 public slots:
-    QStringList ftpList(QString ip, int port, QString user, QString pass, QString path, QString SFDL,
-                        QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass);
+    void ftpList(QString ip, int port, QString user, QString pass, QString path,
+                            QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data);
+    /* void ftpList(QString ip, int port, QString user, QString pass, QString path, QString SFDL,
+                        QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data); */
 
 private slots:
     void setFTP();
@@ -49,6 +51,7 @@ private slots:
 signals:
     void sendWarning(QString label, QString text);
     void sendLogText(QString text);
+    void sendFTPData(QStringList data, QStringList files);
 };
 
 #endif // FTPLISTFILES_H
