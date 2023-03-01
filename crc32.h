@@ -5,6 +5,11 @@
 #include <QtCore>
 #include <QString>
 #include <QMap>
+#include <QMutex>
+
+#ifdef QT_DEBUG
+    #include <QDebug>
+#endif
 
 class Crc32 : public QObject
 {
@@ -13,26 +18,29 @@ class Crc32 : public QObject
 public:
     explicit Crc32(QStringList data);
     ~Crc32();
-    // QString calculateFromFile(QString filename);
-    // void calculateFromFile();
+    QString _id;
+
+public slots:
+    void calculateFromFile();
+
+private slots:
+    void initTable();
     void initInstance(int i);
     void pushData(int i, char *data, int len);
     quint32 releaseInstance(int i);
 
-public slots:
-    void calculateFromFile();
+signals:
+    void finished();
+    void updateCRC32data(QString id, int nRow, QString returnCRC32);
 
 private:
     quint32 crc_table[256];
     QMap<int, quint32> instances;
     QStringList data;
-    QString id;
     int nRow;
     QString filepath;
-
-signals:
-    void finished();
-    void updateCRC32data(QString id, int nRow, QString returnCRC32);
+    QMutex mutex;
+    QString id;
 
 };
 

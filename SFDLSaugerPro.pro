@@ -39,8 +39,7 @@ RESOURCES += \
         gfx.qrc
 
 CONFIG += C++14 crypto
-
-VERSION = 1.3.8
+VERSION = 1.3.11
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"

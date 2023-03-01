@@ -689,7 +689,8 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         file_tbl->setItem(i, 12, LAST_READ);
 
         QTableWidgetItem *FILE_CRC32 = new QTableWidgetItem("");
-        QFont crc32lFont("Times", 10, QFont::Normal);
+        QFont crc32lFont("Monospace", 10, QFont::Normal);
+        crc32lFont.setStyleHint(QFont::TypeWriter);
         FILE_CRC32->setFont(crc32lFont);
         FILE_CRC32->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         file_tbl->setItem(i, 13, FILE_CRC32);
@@ -1655,39 +1656,52 @@ void SFDLSauger::createSpeedreport(QString id)
 // crc32 check
 void SFDLSauger::crc32Check(QString id = "")
 {
-    if(id.isEmpty())
+    if(g_runningCRC32 < g_maxCRC32)
     {
-        id = ui->tabWidget->tabToolTip(ui->tabWidget->currentIndex());
-    }
-
-    QString path = settingsWindow->_downloadPath + id + "/";
-
-    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
-    QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
-
-    widget2->showColumn(13);
-
-    for(int i = 0; i < widget2->rowCount(); i++)
-    {
-        if(widget2->item(i, 0)->checkState() == Qt::Checked && widget2->item(i, 7)->text().toInt() == 10)
+        if(id.isEmpty())
         {
-            auto thread = new QThread;
+            id = ui->tabWidget->tabToolTip(ui->tabWidget->currentIndex());
+        }
 
-            QStringList data;
-            data.append(id);
-            data.append(QString::number(i));
-            data.append(path + widget2->item(i, 2)->text());
+        QString path = settingsWindow->_downloadPath + id + "/";
 
-            auto worker = new Crc32(data);
-            worker->moveToThread(thread);
+        QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
+        QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
 
-            connect(worker, SIGNAL(updateCRC32data(QString,int,QString)), this, SLOT(updateCRC32(QString,int,QString)));
-            connect(thread, SIGNAL(started()), worker, SLOT(calculateFromFile()));
-            connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
-            connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
-            connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+        widget2->showColumn(13);
 
-            thread->start();
+        for(int i = 0; i < widget2->rowCount(); i++)
+        {
+            if(g_runningCRC32 >= g_maxCRC32)
+            {
+                break;
+            }
+
+            if(widget2->item(i, 0)->checkState() == Qt::Checked
+                    && widget2->item(i, 7)->text().toInt() == 10
+                    && widget2->item(i, 13)->text().isEmpty())
+            {
+                auto thread = new QThread;
+
+                QStringList data;
+                data.append(id);
+                data.append(QString::number(i));
+                data.append(path + widget2->item(i, 2)->text());
+
+                auto worker = new Crc32(data);
+                worker->moveToThread(thread);
+                g_CRC32Worker.append(worker);
+
+                connect(worker, SIGNAL(updateCRC32data(QString,int,QString)), this, SLOT(updateCRC32(QString,int,QString)));
+                connect(thread, SIGNAL(started()), worker, SLOT(calculateFromFile()));
+                connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+                connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+                connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
+                thread->start();
+
+                g_runningCRC32++;
+            }
         }
     }
 }
@@ -1699,6 +1713,9 @@ void SFDLSauger::updateCRC32(QString id, int nRow, QString crc32Data)
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
 
     widget2->item(nRow, 13)->setText(crc32Data);
+
+    g_runningCRC32--;
+    crc32Check(id);
 }
 
 void SFDLSauger::sfvCheck(QString id)
@@ -1723,7 +1740,12 @@ void SFDLSauger::sfvCheck(QString id)
     {
         if(widget2->item(j, 13)->text().isEmpty())
         {
-            QTimer::singleShot(5000, this, std::bind(&SFDLSauger::sfvCheck,this,id));
+            // QTimer::singleShot(5000, this, std::bind(&SFDLSauger::sfvCheck,this,id));
+            auto timer = new QTimer(this);
+            timer->setObjectName(id);
+            timer->singleShot(1000, this, std::bind(&SFDLSauger::sfvCheck,this,id));
+            g_SFVTimer.append(timer);
+
             return;
         }
     }
@@ -1839,7 +1861,7 @@ void SFDLSauger::unrarDeleteFiles(QString id)
     QLabel *statusLabel = widget1->findChild<QLabel *>("mStatusText");
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
 
-    statusLabel->setText(tr("Lösche RAR Dateien ..."));
+    statusLabel->setText(tr("Entferne RAR Dateien ..."));
 
     for(int i = 0; i < widget2->rowCount(); i++)
     {
@@ -1854,14 +1876,14 @@ void SFDLSauger::unrarDeleteFiles(QString id)
             if(match.hasMatch())
             {
                 QString datei = tFile.at(0);
-                statusLabel->setText(tr("Lösche: ") + datei);
+                statusLabel->setText(tr("Entferne: ") + datei);
 
                 QFile::remove(settingsWindow->_downloadPath + id + "/" + datei);
             }
         }
     }
 
-    statusLabel->setText(tr("Alle RAR Dateien gelöscht!"));
+    statusLabel->setText(tr("Alle RAR Dateien entfernt!"));
 }
 
 // unrar files
@@ -1922,6 +1944,7 @@ void SFDLSauger::unrarFiles(QString id)
 
     auto worker = new UnRAR(data);
     worker->moveToThread(thread);
+    g_UnRARWorker.append(worker);
 
     connect(worker, SIGNAL(updateUnRarProgress(QString,QString,int)), this, SLOT(unrarProgressUpdate(QString,QString,int)));
     connect(thread, SIGNAL(started()), worker, SLOT(startUnRAR()));
@@ -1978,6 +2001,45 @@ void SFDLSauger::on_tabWidget_tabCloseRequested(int index)
     if(reply == QMessageBox::Yes)
     {
         stopDownload();
+
+        QString id = ui->tabWidget->tabToolTip(index);
+
+        // stop running crc32 threads for this id
+        // ... some strange bug ...
+        /*
+        foreach(Crc32* c, g_CRC32Worker)
+        {
+            if(id == c->_id && c->thread()->isRunning())
+            {
+                c->thread()->quit();
+                c->thread()->wait();
+                c->deleteLater();
+            }
+        }
+        */
+
+        // stop sfv check timers
+        foreach(QTimer* t, g_SFVTimer)
+        {
+            if(id == t->objectName() && t->isActive())
+            {
+                t->stop();
+                t->deleteLater();
+            }
+        }
+
+        // stop unrar threads for this id
+        // there should be only one for this id but you never know
+        foreach(UnRAR* u, g_UnRARWorker)
+        {
+            if(id == u->id && u->thread()->isRunning())
+            {
+                u->thread()->quit();
+                u->thread()->wait();
+                u->deleteLater();
+            }
+        }
+
         widget1->deleteLater();
         ui->tabWidget->removeTab(index);
     }

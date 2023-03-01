@@ -4,6 +4,8 @@
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
     // Allow secondary instances
     SingleApplication app(argc, argv, true);
 
@@ -33,8 +35,8 @@ int main(int argc, char *argv[])
     reg.setValue("Default", QDir::toNativeSeparators(qApp->applicationFilePath() + "/") + "icon.ico");
     #endif
 
-    app.setOrganizationName("MLCBoard");
-    app.setOrganizationDomain("mlcboard.com");
+    app.setOrganizationName(QMAKE_TARGET_COMPANY);
+    app.setOrganizationDomain("https://mlcboard.com/");
     app.setApplicationName(APP_PRODUCT);
     app.setApplicationVersion(APP_VERSION);
 
@@ -63,7 +65,6 @@ int main(int argc, char *argv[])
     }
 
     w.setWindowIcon(QIcon("icon.ico"));
-    // w.setWindowTitle("SFDLSauger Pro (v" + QString(APP_VERSION) + ")");
     w.setWindowTitle("SFDLSauger Pro");
 
     splash.hide();

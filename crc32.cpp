@@ -1,14 +1,26 @@
 #include "crc32.h"
 #include <QFile>
 
-#include <QDebug>
-
 Crc32::Crc32(QStringList data) : data(data)
 {
+
+    mutex.lock();
+    _id = this->data.at(0);
     id = this->data.at(0);
     nRow = this->data.at(1).toInt();
     filepath = this->data.at(2);
+    mutex.unlock();
 
+    initTable();
+}
+
+Crc32::~Crc32()
+{
+
+}
+
+void Crc32::initTable()
+{
     quint32 crc;
 
     // initialize CRC table
@@ -20,11 +32,6 @@ Crc32::Crc32(QStringList data) : data(data)
 
         crc_table[i] = crc;
     }
-}
-
-Crc32::~Crc32()
-{
-
 }
 
 void Crc32::calculateFromFile()
@@ -60,8 +67,8 @@ void Crc32::calculateFromFile()
     }
 
     QString returnCRC32 = QString::number(crc ^ 0xFFFFFFFFUL, 16);
-    emit updateCRC32data(id, nRow, returnCRC32);
 
+    emit updateCRC32data(id, nRow, returnCRC32);
     emit finished();
 }
 

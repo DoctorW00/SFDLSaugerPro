@@ -2,11 +2,13 @@
 
 UnRAR::UnRAR(QStringList data) : data(data)
 {
+    mutex.lock();
     id = this->data.at(0);
     unar = this->data.at(1);
     file = this->data.at(2);
     destPath = this->data.at(3);
     command = unar + " x -kb -y " + file + " " + destPath;
+    mutex.unlock();
 }
 
 UnRAR::~UnRAR()

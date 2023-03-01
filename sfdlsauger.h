@@ -79,13 +79,15 @@ private slots:
     void stopDownload();
     bool allDownloadsDone(QString id);
     void createSpeedreport(QString id);
-    void crc32Check(QString id);
-    void updateCRC32(QString id, int nRow, QString crc32Data);
-    void sfvCheck(QString id);
     QStringList dirFromFilePath(QString filePath);
     void updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate);
     void updateDownloadFileStatus(QString tabID, int nRow, QString statusMsg, int status);
     void downloadError(QString error);
+
+    // crc32 & sfv
+    void crc32Check(QString id);
+    void updateCRC32(QString id, int nRow, QString crc32Data);
+    void sfvCheck(QString id);
 
     // unrar
     void unrarFiles(QString id);
@@ -109,29 +111,25 @@ private:
     qint64 g_lastProgressUpdate;
 
     // ftp downloads
-    QList<QThread*> g_Threads;
     QList<FTPDownload*> g_Worker;
     int g_runningDownloads = 0;
     int g_maxDownloads = 10;
     QMap<QString, int> g_tabDownloads;
 
+    // crc32 threads
+    QList<Crc32*> g_CRC32Worker;
+    int g_runningCRC32 = 0;
+    int g_maxCRC32 = 4;
+
+    // unrar threads
+    QList<UnRAR*> g_UnRARWorker;
+
+    // sfv check timer
+    QList<QTimer*> g_SFVTimer;
+
     // ftp clients
     QString g_FILEZILLA;
 
-    // global settings
-    /*
-    QString g_downloadRootPath;
-    bool g_crc32Check;
-    bool g_sfvCheck;
-    QString g_unrarPath;
-    bool g_unrarAutoEtract;
-    bool g_unrarAutoDelete;
-    QStringList g_sfdlPasswords;
-    QString g_ftpProxyHost;
-    QString g_ftpProxyPort;
-    QString g_ftpProxyUser;
-    QString g_ftpProxyPass;
-    */
 };
 
 #endif // SFDLSAUGER_H

@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
+#include <QMutex>
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -17,6 +18,7 @@ class UnRAR : public QObject
 public:
     explicit UnRAR(QStringList data);
     ~UnRAR();
+    QString id;
 
 signals:
     void finished();
@@ -33,7 +35,6 @@ private:
     QProcess *p;
     QStringList data;
 
-    QString id;
     QString file;     // file to extract
     QString destPath; // extract destination
 
@@ -42,6 +43,8 @@ private:
 
     QString fileName; // current extracting
     int progress;
+
+    QMutex mutex;
 
 };
 
