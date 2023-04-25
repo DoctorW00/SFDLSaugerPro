@@ -14,7 +14,7 @@
 #include <QtWidgets>
 #include <QObject>
 #include <QInputDialog>
-#include <QHostAddress>
+// #include <QHostAddress>
 #include <QRegExp>
 #include <QThread>
 #include <QDesktopWidget>

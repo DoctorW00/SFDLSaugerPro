@@ -6,7 +6,7 @@
 #include <QtXml/QtXml>
 #include <QByteArray>
 #include <QObject>
-#include <QHostAddress>
+// #include <QHostAddress>
 
 #include <QtFtp/QFtp>
 // #include <QtCrypto>

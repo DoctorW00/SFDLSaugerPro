@@ -76,11 +76,22 @@ QString sfdl::decryptString(QString password, QString encodedString)
 
 bool sfdl::validateIPv4(QString ip)
 {
+    /*
     QHostAddress address(ip);
 
     if(QAbstractSocket::IPv4Protocol == address.protocol())
     {
        return true;
+    }
+    */
+
+    QString ipv4Regex = "^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$";
+    QRegularExpression re(ipv4Regex);
+    QRegularExpressionMatch match = re.match(ip);
+
+    if(match.hasMatch())
+    {
+        return true;
     }
 
     return false;

@@ -1273,7 +1273,12 @@ void SFDLSauger::startDownload(QString tabID = "")
                 break;
             }
 
-            if(widget3->item(i, 0)->checkState() == Qt::Checked && widget3->item(i, 7)->text().toInt() == 0 || widget3->item(i, 7)->text().toInt() == 9)
+            // if(widget3->item(i, 0)->checkState() == Qt::Checked && widget3->item(i, 7)->text().toInt() == 0 || widget3->item(i, 7)->text().toInt() == 9)
+            if(widget3->item(i, 0)->checkState() == Qt::Checked &&
+                    widget3->item(i, 7)->text().toInt() == 0 ||
+                    widget3->item(i, 7)->text().toInt() == 9 ||
+                    widget3->item(i, 7)->text().toInt() == 3 // unknown error (ftp)
+                    )
             {
                 // set local download path
                 QString fullDownloadPath = settingsWindow->_downloadPath + id;

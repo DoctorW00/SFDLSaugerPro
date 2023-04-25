@@ -141,7 +141,7 @@ void FTPDownload::isDone(bool)
 
         if(ftp->error() == 1)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler"), 1);
+            emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler"), 3);
         }
 
         if(ftp->error() == 2)
@@ -151,12 +151,12 @@ void FTPDownload::isDone(bool)
 
         if(ftp->error() == 3)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert"), 3);
+            emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert"), 2);
         }
 
         if(ftp->error() == 4)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden"), 4);
+            emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden"), 2);
         }
     }
     else
