@@ -95,7 +95,7 @@ void UnRAR::ReadOut()
 
         if(update)
         {
-            updateUnRarProgress(id, fileName, progress);
+            emit updateUnRarProgress(id, fileName, progress);
         }
     }
 }

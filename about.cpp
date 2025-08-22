@@ -9,7 +9,8 @@ About::About(QWidget *parent) : QDialog(parent), ui(new Ui::About)
     ui->label_3->setText(tr("Version <b>") + QString(APP_VERSION)
                          + "</b><br />" + tr("Erstellt mit ") +  "<a href=\"https://isocpp.org/\">C++</a> und <a href=\"https://www.qt.io/\">Qt</a>" + tr(" von ") + "<b>GrafSauger</b>"
                          + tr(" für ") + "<a href=\"https://mlcboard.com/\">MLCBoard.com</a></b>"
-                         + "<br />" + tr("Was ist SFDL? Simple FTP download ") + "<a href=\"https://sfdl.net/\">SFDL.net</a>");
+                         + "<br />" + tr("Was ist SFDL? Simple FTP download ") + "<a href=\"https://sfdl.net/\">SFDL.net</a>"
+                         + "<br /> UnRAR © Alexander Roshal <a href=\"https://www.rarlab.com/rar_add.htm\">rarlab.com</a>");
     ui->label_3->setTextFormat(Qt::RichText);
     ui->label_3->setTextInteractionFlags(Qt::TextBrowserInteraction);
     ui->label_3->setOpenExternalLinks(true);

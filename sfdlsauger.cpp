@@ -8,7 +8,7 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
     loadWindowStatus();
 
     ui->textEdit->setLineWrapMode(QTextEdit::NoWrap);
-    addLogText(tr("SFDLSauger Pro v") + QString(APP_VERSION) + tr(" geladen und bereit!"));
+    addLogText("SFDLSauger Pro v" + QString(APP_VERSION) + tr(" geladen und bereit!"));
 
     // menubar css
     ui->menuBar->setStyleSheet("QMenuBar { background: #a2a2a2 url(:/gfx/menubg.png) repeat-x; color: #f1f1f1; } QMenuBar::item:selected { color: black; }");
@@ -173,7 +173,7 @@ void SFDLSauger::startDownloadButton()
 {
     QString id = ui->tabWidget->tabToolTip(ui->tabWidget->currentIndex());
 
-    addLogText(id + ": Starte Download ...");
+    addLogText(id + tr(": Starte Download ..."));
 
     swapStartStopButton(id);
     changeCHKBOX(id, true);
@@ -602,11 +602,42 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     bool fileError = false;
     for(int i = 0; i < files.count(); i++)
     {
+        QString filePathSplit = files.at(i).split("|").at(0);
+        qint16 pos = filePathSplit.lastIndexOf(QChar('/'));
+        QString f3 = filePathSplit.mid(pos);
+
+        if(f3.startsWith("/")) // remove first slash
+        {
+            f3.remove(0, 1);
+        }
+
+        // exldude files from download
+        bool exludeFile = false;
+        QStringList excludeFiles = settingsWindow->_excludeFilesFromDownload;
+        for(int i = 0; i < excludeFiles.size(); i++)
+        {
+            QRegularExpression regex(QRegularExpression::escape(excludeFiles.at(i)), QRegularExpression::CaseInsensitiveOption);
+            QRegularExpressionMatch match = regex.match(f3);
+
+            if(match.hasMatch())
+            {
+                exludeFile = true;
+                break;
+            }
+        }
+
         // QFont filelFont("Times", 10, QFont::Normal);
         QFont filelFont(defaultFont.defaultFamily(), 10, QFont::Normal);
 
         QTableWidgetItem *CHKBOX = new QTableWidgetItem();
-        CHKBOX->setCheckState(Qt::Checked);
+        if(exludeFile)
+        {
+            CHKBOX->setCheckState(Qt::Unchecked); // exclude download
+        }
+        else
+        {
+            CHKBOX->setCheckState(Qt::Checked);
+        }
         CHKBOX->setTextAlignment(Qt::AlignCenter);
         file_tbl->setItem(i, 0, CHKBOX);
 
@@ -623,22 +654,12 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
             break;
         }
 
-        QString filePathSplit = files.at(i).split("|").at(0);
-        qint16 pos = filePathSplit.lastIndexOf(QChar('/'));
-        QString f3 = filePathSplit.mid(pos);
-
-        if(f3.startsWith("/")) // remove first slash
-        {
-            f3.remove(0, 1);
-        }
-
         QTableWidgetItem *FILE = new QTableWidgetItem(f3);
         FILE->setFont(filelFont);
         file_tbl->setItem(i, 2, FILE);
 
         QFont sizeFont(defaultFont.defaultFamily(), 10, QFont::Normal);
 
-        // totalDownloadSize += files.at(i).split("|").at(1).toInt();
         totalDownloadSize += files.at(i).split("|").at(1).toLongLong();
 
         QTableWidgetItem *SIZE = new QTableWidgetItem(files.at(i).split("|").at(1));
@@ -659,7 +680,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         PROGBAR->setObjectName("pbarIn_" + QString::number(i));
         file_tbl->setCellWidget(i, 5, PROGBAR);
 
-        QTableWidgetItem *STATUSMSG = new QTableWidgetItem("Ready!");
+        QTableWidgetItem *STATUSMSG = new QTableWidgetItem(tr("Ready!"));
         STATUSMSG->setFont(filelFont);
         file_tbl->setItem(i, 6, STATUSMSG);
 
@@ -846,14 +867,12 @@ void SFDLSauger::updateTotalDownloadSize(QString id)
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("status");
     QTableWidget *widget3 = widget1->findChild<QTableWidget *>("files");
 
-    // int newTotalDownloadSize = 0;
     qlonglong newTotalDownloadSize = 0;
 
     for(int i = 0; i < widget3->rowCount(); i++)
     {
         if(widget3->item(i, 0)->checkState() == Qt::Checked)
         {
-             // newTotalDownloadSize += widget3->item(i, 3)->text().toInt();
             newTotalDownloadSize += widget3->item(i, 3)->text().toLongLong();
         }
     }
@@ -1051,7 +1070,6 @@ int SFDLSauger::addTab(QString tabText)
     PROGBAR->setMaximum(100);
     PROGBAR->setValue(0);
     PROGBAR->setTextVisible(1);
-    // PROGBAR->setStyleSheet("margin: 0 5px 0 5px; background: white; border: 0px; border-radius: 0px; text-align: center; height: 30px;");
     PROGBAR->setStyleSheet("QProgressBar { background: white; height: 30px; margin: 0 5px 0 5px; border: 1px solid #420000; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #c52222; width: 1px; margin: 0px; }");
     PROGBAR->setFixedWidth(150);
     tbar->addWidget(PROGBAR);
@@ -1114,8 +1132,13 @@ QString SFDLSauger::checkSameDownloads(QString name)
     for(int i = 0; i < ui->tabWidget->count(); i++)
     {
         QString id = ui->tabWidget->tabToolTip(i);
-
+        /*
         if(id.split(QRegExp("\\([0-9]+\\)")).at(0) == name)
+        {
+            dblEntry++;
+        }
+        */
+        if(id.split(QRegularExpression("\\([0-9]+\\)")).at(0) == name)
         {
             dblEntry++;
         }
@@ -1132,11 +1155,12 @@ QString SFDLSauger::checkSameDownloads(QString name)
 // clean path and file from file full path
 QStringList SFDLSauger::dirFromFilePath(QString filePath)
 {
-    QString fileName = filePath.split(QRegExp("[/\\\\]")).last();
-    QString cleanPath = filePath.split(QRegExp(fileName)).at(0);
+    QRegularExpression regex("[/\\\\]");
+    QStringList pathParts = filePath.split(regex);
+    QString fileName = pathParts.last();
+    QString cleanPath = filePath.left(filePath.length() - fileName.length());
 
     QStringList result;
-
     result.append(cleanPath);
     result.append(fileName);
 
@@ -1152,8 +1176,8 @@ void SFDLSauger::stopDownload()
     foreach(FTPDownload* w, g_Worker)
     {
         if(w->_working && id == w->_id && w->thread()->isRunning())
-        {   
-            updateDownloadFileStatus(id, w->_tableRow, "User Abbruch!", 9);
+        {
+            updateDownloadFileStatus(id, w->_tableRow, tr("User Abbruch!"), 9);
 
             w->ftp->abort();
             w->ftp->thread()->quit();
@@ -1589,11 +1613,14 @@ bool SFDLSauger::allDownloadsDone(QString id)
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
 
-    for(int i = 0; i < widget2->rowCount(); i++)
+    for(int i = 0; i < widget2->rowCount() + 1; i++)
     {
-        if(widget2->item(i, 0)->checkState() == Qt::Checked && widget2->item(i, 7)->text().toInt() != 10)
+        if(widget2->item(i, 0))
         {
-            return false;
+            if(widget2->item(i, 0)->checkState() == Qt::Checked && widget2->item(i, 7)->text().toInt() != 10)
+            {
+                return false;
+            }
         }
     }
 
@@ -1675,37 +1702,40 @@ void SFDLSauger::crc32Check(QString id = "")
 
         widget2->showColumn(13);
 
-        for(int i = 0; i < widget2->rowCount(); i++)
+        for(int i = 0; i < widget2->rowCount() + 1; i++)
         {
             if(g_runningCRC32 >= g_maxCRC32)
             {
                 break;
             }
 
-            if(widget2->item(i, 0)->checkState() == Qt::Checked
-                    && widget2->item(i, 7)->text().toInt() == 10
-                    && widget2->item(i, 13)->text().isEmpty())
+            if(widget2->item(i, 0))
             {
-                auto thread = new QThread;
+                if(widget2->item(i, 0)->checkState() == Qt::Checked
+                        && widget2->item(i, 7)->text().toInt() == 10
+                        && widget2->item(i, 13)->text().isEmpty())
+                {
+                    auto thread = new QThread;
 
-                QStringList data;
-                data.append(id);
-                data.append(QString::number(i));
-                data.append(path + widget2->item(i, 2)->text());
+                    QStringList data;
+                    data.append(id);
+                    data.append(QString::number(i));
+                    data.append(path + widget2->item(i, 2)->text());
 
-                auto worker = new Crc32(data);
-                worker->moveToThread(thread);
-                g_CRC32Worker.append(worker);
+                    auto worker = new Crc32(data);
+                    worker->moveToThread(thread);
+                    g_CRC32Worker.append(worker);
 
-                connect(worker, SIGNAL(updateCRC32data(QString,int,QString)), this, SLOT(updateCRC32(QString,int,QString)));
-                connect(thread, SIGNAL(started()), worker, SLOT(calculateFromFile()));
-                connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
-                connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
-                connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+                    connect(worker, SIGNAL(updateCRC32data(QString,int,QString)), this, SLOT(updateCRC32(QString,int,QString)));
+                    connect(thread, SIGNAL(started()), worker, SLOT(calculateFromFile()));
+                    connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+                    connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+                    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 
-                thread->start();
+                    thread->start();
 
-                g_runningCRC32++;
+                    g_runningCRC32++;
+                }
             }
         }
     }
@@ -1730,7 +1760,8 @@ void SFDLSauger::sfvCheck(QString id)
     QDir sfvPath(tPath);
 
     QStringList fileList = sfvPath.entryList();
-    int index = fileList.indexOf(QRegExp("([a-zA-Z0-9\\s_\\.\\-\\(\\):])+(.sfv)$"));
+    // int index = fileList.indexOf(QRegExp("([a-zA-Z0-9\\s_\\.\\-\\(\\):])+(.sfv)$"));
+    int index = fileList.indexOf(QRegularExpression("([a-zA-Z0-9\\s_\\.\\-\\(\\):])+(.sfv)$"));
 
     if(!fileList.count())
     {
@@ -1817,34 +1848,37 @@ void SFDLSauger::chkForExisitingFiles(QString id = "")
 
     qint64 totalResume = 0;
 
-    for(int i = 0; i < widget2->rowCount(); i++)
+    for(int i = 0; i < widget2->rowCount() + 1; i++)
     {
-        QFileInfo chkFile(settingsWindow->_downloadPath + id + "/" + widget2->item(i, 2)->text());
-        if(chkFile.exists() && chkFile.isFile())
+        if(widget2->item(i, 2))
         {
-            qint64 currentFileSize = chkFile.size();
-            qint64 totalFileSize = widget2->item(i, 3)->text().toLongLong();
-
-            totalResume += currentFileSize;
-
-            if(currentFileSize >= totalFileSize)
+            QFileInfo chkFile(settingsWindow->_downloadPath + id + "/" + widget2->item(i, 2)->text());
+            if(chkFile.exists() && chkFile.isFile())
             {
-                widget2->item(i, 6)->setText(tr("Fertig!"));
-                widget2->item(i, 7)->setText(QString::number(10));
+                qint64 currentFileSize = chkFile.size();
+                qint64 totalFileSize = widget2->item(i, 3)->text().toLongLong();
 
-                widget2->item(i, 12)->setText(QString::number(currentFileSize));
-                updateDownloadProgress(id, i, totalFileSize, totalFileSize, true, true);
-            }
-            else
-            {
-                widget2->item(i, 6)->setText(tr("User Abbruch!"));
-                widget2->item(i, 7)->setText(QString::number(9));
+                totalResume += currentFileSize;
 
-                QTableWidgetItem *RESUME = new QTableWidgetItem(QString::number(currentFileSize));
-                widget2->setItem(i, 15, RESUME);
+                if(currentFileSize >= totalFileSize)
+                {
+                    widget2->item(i, 6)->setText(tr("Fertig!"));
+                    widget2->item(i, 7)->setText(QString::number(10));
 
-                widget2->item(i, 12)->setText(QString::number(currentFileSize));
-                updateDownloadProgress(id, i, currentFileSize, totalFileSize, true, true);
+                    widget2->item(i, 12)->setText(QString::number(currentFileSize));
+                    updateDownloadProgress(id, i, totalFileSize, totalFileSize, true, true);
+                }
+                else
+                {
+                    widget2->item(i, 6)->setText(tr("User Abbruch!"));
+                    widget2->item(i, 7)->setText(QString::number(9));
+
+                    QTableWidgetItem *RESUME = new QTableWidgetItem(QString::number(currentFileSize));
+                    widget2->setItem(i, 15, RESUME);
+
+                    widget2->item(i, 12)->setText(QString::number(currentFileSize));
+                    updateDownloadProgress(id, i, currentFileSize, totalFileSize, true, true);
+                }
             }
         }
     }
@@ -1868,22 +1902,25 @@ void SFDLSauger::unrarDeleteFiles(QString id)
 
     statusLabel->setText(tr("Entferne RAR Dateien ..."));
 
-    for(int i = 0; i < widget2->rowCount(); i++)
+    for(int i = 0; i < widget2->rowCount() + 1; i++)
     {
-        QStringList tFile = widget2->item(i, 2)->text().split("/");
-
-        // check if file is in sub-dir (extract only main dir)
-        if(tFile.count() == 1)
+        if(widget2->item(i, 2))
         {
-            QRegularExpression rarMatch("(part[0-9]+.rar|.r[0-9]+|.rar)$");
-            QRegularExpressionMatch match = rarMatch.match(tFile.at(0));
+            QStringList tFile = widget2->item(i, 2)->text().split("/");
 
-            if(match.hasMatch())
+            // check if file is in sub-dir (extract only main dir)
+            if(tFile.count() == 1)
             {
-                QString datei = tFile.at(0);
-                statusLabel->setText(tr("Entferne: ") + datei);
+                QRegularExpression rarMatch("(part[0-9]+.rar|.r[0-9]+|.rar)$");
+                QRegularExpressionMatch match = rarMatch.match(tFile.at(0));
 
-                QFile::remove(settingsWindow->_downloadPath + id + "/" + datei);
+                if(match.hasMatch())
+                {
+                    QString datei = tFile.at(0);
+                    statusLabel->setText(tr("Entferne: ") + datei);
+
+                    QFile::remove(settingsWindow->_downloadPath + id + "/" + datei);
+                }
             }
         }
     }
@@ -1900,64 +1937,111 @@ void SFDLSauger::unrarFiles(QString id)
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
 
-    for(int i = 0; i < widget2->rowCount(); i++)
+    for(int i = 0; i < widget2->rowCount() + 1; i++)
     {
-        QStringList tFile = widget2->item(i, 2)->text().split("/");
-
-        // check if file is in sub-dir (extract only main dir)
-        if(tFile.count() == 1)
+        if(widget2->item(i, 2))
         {
-            QRegularExpression rarMatch("(part[1].rar|[^part2-99999].rar|.+.rar)$");
-            QRegularExpressionMatch match = rarMatch.match(tFile.at(0));
+            QStringList tFile = widget2->item(i, 2)->text().split("/");
 
-            if(match.hasMatch())
+            // check if file is in sub-dir (extract only main dir)
+            if(tFile.count() == 1)
             {
-                file = tFile.at(0);
+                QRegularExpression rarMatch("(part[1].rar|[^part2-99999].rar|.+.rar)$");
+                QRegularExpressionMatch match = rarMatch.match(tFile.at(0));
 
-                break;
+                if(match.hasMatch())
+                {
+                    file = tFile.at(0);
+
+                    break;
+                }
             }
         }
     }
 
     QString path = settingsWindow->_downloadPath + id + "/";
-    QString unrar = settingsWindow->_unrarPath;
 
-    if(id.isEmpty() || unrar.isEmpty() || path.isEmpty() || file.isEmpty())
+    if(settingsWindow->_unrar_user_internal)
     {
-        addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!</font>"));
-        // MsgWarning(tr("UnRAR Fehler"), "[" + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!"));
+        if(id.isEmpty() || path.isEmpty() || file.isEmpty())
+        {
+            addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!</font>"));
+            return;
+        }
 
-        return;
+        QFileInfo fCHK(path + file);
+        if(!fCHK.exists() || !fCHK.isFile())
+        {
+            addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR Fehler: Die Datei [") + file + tr("] konnte im Pfad [") + path + tr("] nicht gefunden werden.</font>"));
+            MsgWarning(tr("UnRAR Fehler"), "[" + id + tr("] UnRAR Fehler: Die Datei [") + file + tr("] konnte im Pfad [") + path + tr("] nicht gefunden werden."));
+
+            return;
+        }
+
+        auto thread = new QThread;
+
+        QStringList data;
+        data.append(id);
+        data.append(path + file);
+        data.append(path);
+
+        auto worker = new UnrarExtractor(data);
+        worker->moveToThread(thread);
+        g_UnRARExtractor.append(worker);
+
+        connect(worker, SIGNAL(updateUnRarProgress(QString,QString,int)), this, SLOT(unrarProgressUpdate(QString,QString,int)));
+        connect(thread, SIGNAL(started()), worker, SLOT(startUnRAR()));
+        connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+        connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
+        connect(worker, &UnrarExtractor::error, this, [this](const QString& message) {
+            MsgWarning(tr("UnRAR Fehler"), tr("UnRAR Fehler: ") + message);
+        });
+
+        thread->start();
     }
-
-    QFileInfo fCHK(path + file);
-    if(!fCHK.exists() || !fCHK.isFile())
+    else
     {
-        addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR Fehler: Die Datei [") + file + tr("] konnte im Pfad [") + path + tr("] nicht gefunden werden.</font>"));
-        MsgWarning(tr("UnRAR Fehler"), "[" + id + tr("] UnRAR Fehler: Die Datei [") + file + tr("] konnte im Pfad [") + path + tr("] nicht gefunden werden."));
+        QString unrar = settingsWindow->_unrarPath;
 
-        return;
+        if(id.isEmpty() || unrar.isEmpty() || path.isEmpty() || file.isEmpty())
+        {
+            addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!</font>"));
+            // MsgWarning(tr("UnRAR Fehler"), "[" + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!"));
+
+            return;
+        }
+
+        QFileInfo fCHK(path + file);
+        if(!fCHK.exists() || !fCHK.isFile())
+        {
+            addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR Fehler: Die Datei [") + file + tr("] konnte im Pfad [") + path + tr("] nicht gefunden werden.</font>"));
+            MsgWarning(tr("UnRAR Fehler"), "[" + id + tr("] UnRAR Fehler: Die Datei [") + file + tr("] konnte im Pfad [") + path + tr("] nicht gefunden werden."));
+
+            return;
+        }
+
+        auto thread = new QThread;
+
+        QStringList data;
+        data.append(id);
+        data.append(unrar);
+        data.append(path + file);
+        data.append(path);
+
+        auto worker = new UnRAR(data);
+        worker->moveToThread(thread);
+        g_UnRARWorker.append(worker);
+
+        connect(worker, SIGNAL(updateUnRarProgress(QString,QString,int)), this, SLOT(unrarProgressUpdate(QString,QString,int)));
+        connect(thread, SIGNAL(started()), worker, SLOT(startUnRAR()));
+        connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+        connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
+        thread->start();
     }
-
-    auto thread = new QThread;
-
-    QStringList data;
-    data.append(id);
-    data.append(unrar);
-    data.append(path + file);
-    data.append(path);
-
-    auto worker = new UnRAR(data);
-    worker->moveToThread(thread);
-    g_UnRARWorker.append(worker);
-
-    connect(worker, SIGNAL(updateUnRarProgress(QString,QString,int)), this, SLOT(unrarProgressUpdate(QString,QString,int)));
-    connect(thread, SIGNAL(started()), worker, SLOT(startUnRAR()));
-    connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
-    connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
-    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
-
-    thread->start();
 }
 
 void SFDLSauger::unrarProgressUpdate(QString id, QString fileName, int progress)
@@ -2036,6 +2120,16 @@ void SFDLSauger::on_tabWidget_tabCloseRequested(int index)
         // stop unrar threads for this id
         // there should be only one for this id but you never know
         foreach(UnRAR* u, g_UnRARWorker)
+        {
+            if(id == u->id && u->thread()->isRunning())
+            {
+                u->thread()->quit();
+                u->thread()->wait();
+                u->deleteLater();
+            }
+        }
+
+        foreach(UnrarExtractor* u, g_UnRARExtractor)
         {
             if(id == u->id && u->thread()->isRunning())
             {
@@ -2145,7 +2239,7 @@ void SFDLSauger::on_action_ber_triggered()
     infoWindow->setWindowTitle(tr("Über ") + QString(APP_PRODUCT));
     infoWindow->setWindowFlags(infoWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint);
     infoWindow->setSizeGripEnabled(false);
-    infoWindow->setFixedSize(QSize(400, 300));
+    infoWindow->setFixedSize(QSize(400, 320));
     if(infoWindow->_mediaPlayer == false)
     {
         infoWindow->playMedia();

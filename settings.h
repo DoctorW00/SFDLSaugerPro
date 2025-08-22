@@ -12,6 +12,7 @@
 #include <QSettings>
 #include <QCloseEvent>
 #include <QStringList>
+#include <QListWidget>
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -34,6 +35,7 @@ public:
     QString _downloadPath;
     bool _crc32Check;
     bool _sfvCheck;
+    bool _unrar_user_internal = true;
     QString _unrarPath;
     bool _unrarAutoEtract;
     bool _unrarAutoDelete;
@@ -42,6 +44,7 @@ public:
     QString _ftpProxyPort;
     QString _ftpProxyUser;
     QString _ftpProxyPass;
+    QStringList _excludeFilesFromDownload;
 
 private slots:
     QString bytes2Human(float filesize);
@@ -55,6 +58,10 @@ private slots:
     void on_line_new_password_returnPressed();
     void on_btn_del_password_clicked();
     void on_button_openUnrarPath_clicked();
+    void on_btn_new_exception_clicked();
+    void on_btn_del_exception_clicked();
+    void on_line_new_exception_returnPressed();
+    bool checkForExisting(QListWidget *listWidget, QString entry);
 
 private:
     Ui::Settings *ui;

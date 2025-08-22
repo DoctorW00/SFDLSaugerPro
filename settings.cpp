@@ -1,6 +1,8 @@
 #include "settings.h"
 #include "ui_settings.h"
 
+#include <QDebug>
+
 Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
 {
     ui->setupUi(this);
@@ -17,6 +19,7 @@ Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
     connect(ui->chk_crc32, SIGNAL(stateChanged(int)), this, SLOT(crc32sfvCheckBoxes()));
     connect(ui->chk_sfv, SIGNAL(stateChanged(int)), this, SLOT(crc32sfvCheckBoxes()));
 
+    connect(ui->chk_use_internal_unrar, SIGNAL(stateChanged(int)), this, SLOT(unrarCheckBoxes()));
     connect(ui->chk_unrar, SIGNAL(stateChanged(int)), this, SLOT(unrarCheckBoxes()));
     connect(ui->chk_unrar_del, SIGNAL(stateChanged(int)), this, SLOT(unrarCheckBoxes()));
 
@@ -95,6 +98,21 @@ void Settings::loadSettings()
     config.endGroup();
 
     config.beginGroup("unrar");
+    if(config.contains("unar_use_internal"))
+    {
+        _unrar_user_internal = config.value("unar_use_internal").toBool();
+    }
+    ui->chk_use_internal_unrar->setChecked(_unrar_user_internal);
+    if(_unrar_user_internal)
+    {
+        ui->line_unrar_path->setDisabled(true);
+        ui->button_openUnrarPath->setDisabled(true);
+    }
+    else
+    {
+        ui->line_unrar_path->setDisabled(false);
+        ui->button_openUnrarPath->setDisabled(false);
+    }
     _unrarPath = config.value("unrarPath").toString();
     ui->line_unrar_path->setText(_unrarPath);
     _unrarAutoEtract = config.value("unrarAutoEtract").toBool();
@@ -117,6 +135,10 @@ void Settings::loadSettings()
     _sfdlPasswords.prepend("mlcboard.com");
     _sfdlPasswords.removeDuplicates();
     ui->list_sfdl_passwords->addItems(_sfdlPasswords);
+
+    _excludeFilesFromDownload = config.value("downloadExceptions").toStringList();
+    _excludeFilesFromDownload.removeDuplicates();
+    ui->list_exceptions->addItems(_excludeFilesFromDownload);
     config.endGroup();
 
     config.beginGroup("ftpproxy");
@@ -150,6 +172,18 @@ void Settings::saveSettings()
     config.endGroup();
 
     config.beginGroup("unrar");
+    config.setValue("unar_use_internal", ui->chk_use_internal_unrar->isChecked());
+    _unrar_user_internal = ui->chk_use_internal_unrar->isChecked();
+    if(_unrar_user_internal)
+    {
+        ui->line_unrar_path->setDisabled(true);
+        ui->button_openUnrarPath->setDisabled(true);
+    }
+    else
+    {
+        ui->line_unrar_path->setDisabled(false);
+        ui->button_openUnrarPath->setDisabled(false);
+    }
     config.setValue("unrarPath", ui->line_unrar_path->text());
     _unrarPath = ui->line_unrar_path->text();
     config.setValue("unrarAutoEtract", ui->chk_unrar->isChecked());
@@ -162,7 +196,6 @@ void Settings::saveSettings()
     QStringList passwords = QStringList();
     for(int i = 0; i < ui->list_sfdl_passwords->count(); i++)
     {
-        QString pass = ui->list_sfdl_passwords->item(i)->text();
         passwords.append(ui->list_sfdl_passwords->item(i)->text());
     }
     config.beginGroup("sfdl");
@@ -170,6 +203,16 @@ void Settings::saveSettings()
     passwords.removeDuplicates();
     config.setValue("sfdlPasswords", passwords);
     _sfdlPasswords = passwords;
+
+    // save download exceptions
+    QStringList exceptions = QStringList();
+    for(int i = 0; i < ui->list_exceptions->count(); i++)
+    {
+        exceptions.append(ui->list_exceptions->item(i)->text());
+    }
+    exceptions.removeDuplicates();
+    config.setValue("downloadExceptions", exceptions);
+    _excludeFilesFromDownload = exceptions;
     config.endGroup();
 
     config.beginGroup("ftpproxy");
@@ -286,6 +329,19 @@ void Settings::on_button_openDownloadPath_clicked()
     }
 }
 
+bool Settings::checkForExisting(QListWidget *listWidget, QString entry)
+{
+    for(QListWidgetItem *item : listWidget->findItems("", Qt::MatchContains))
+    {
+        if(entry == item->text())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // add new password
 void Settings::on_btn_new_password_clicked()
 {
@@ -293,10 +349,16 @@ void Settings::on_btn_new_password_clicked()
 
     if(!newPassword.isEmpty())
     {
-        ui->list_sfdl_passwords->addItem(newPassword);
-        ui->line_new_password->clear();
-
-        saveSettings();
+        if(checkForExisting(ui->list_sfdl_passwords, newPassword))
+        {
+            QMessageBox::critical(this, tr("Fehler"), tr("Passwort bereits vorhanden!"), QMessageBox::Ok);
+        }
+        else
+        {
+            ui->list_sfdl_passwords->addItem(newPassword);
+            ui->line_new_password->clear();
+            saveSettings();
+        }
     }
 }
 
@@ -321,7 +383,6 @@ void Settings::on_btn_del_password_clicked()
     saveSettings();
 }
 
-
 void Settings::on_button_openUnrarPath_clicked()
 {
     // user home path
@@ -345,3 +406,40 @@ void Settings::on_button_openUnrarPath_clicked()
         saveSettings();
     }
 }
+
+void Settings::on_line_new_exception_returnPressed()
+{
+    on_btn_new_exception_clicked();
+}
+
+void Settings::on_btn_new_exception_clicked()
+{
+    QString newExeption = ui->line_new_exception->text();
+
+    if(!newExeption.isEmpty())
+    {
+        if(checkForExisting(ui->list_exceptions, newExeption))
+        {
+            QMessageBox::critical(this, tr("Fehler"), tr("Ausnahme bereits in der Liste!"), QMessageBox::Ok);
+        }
+        else
+        {
+            ui->list_exceptions->addItem(newExeption);
+            ui->line_new_exception->clear();
+            saveSettings();
+        }
+    }
+}
+
+void Settings::on_btn_del_exception_clicked()
+{
+    QList<QListWidgetItem*> items = ui->list_exceptions->selectedItems();
+    foreach(QListWidgetItem * item, items)
+    {
+        delete ui->list_exceptions->takeItem(ui->list_exceptions->row(item));
+    }
+
+    saveSettings();
+}
+
+

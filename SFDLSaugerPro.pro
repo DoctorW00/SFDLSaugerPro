@@ -1,4 +1,4 @@
-QT       += core widgets gui network ftp xml multimedia
+QT += core widgets gui network ftp xml multimedia
 
 TARGET = SFDLSaugerPro
 TEMPLATE = app
@@ -16,7 +16,8 @@ SOURCES += \
         settings.cpp \
         crc32.cpp \
         unrar.cpp \
-        qaesencryption.cpp
+        qaesencryption.cpp \
+        unrarextractor.cpp
 
 HEADERS += \
         sfdlsauger.h \
@@ -28,7 +29,8 @@ HEADERS += \
         settings.h \
         crc32.h \
         unrar.h \
-        qaesencryption.h
+        qaesencryption.h \
+        unrarextractor.h
 
 FORMS += \
         sfdlsauger.ui \
@@ -38,13 +40,31 @@ FORMS += \
 RESOURCES += \
         gfx.qrc
 
+# unrar start ->
+SOURCES += $$files($$PWD/unrar/*.cpp)
+HEADERS += $$files($$PWD/unrar/*.hpp)
+INCLUDEPATH += $$PWD/unrar
+LIBS += -L$$PWD/unrardll -lunrar
+DEFINES += RARDLL
+unix {
+    SOURCES -= $$files($$PWD/unrar/win*.cpp)
+    SOURCES -= $$files($$PWD/unrar/isnt.cpp)
+    DEFINES += _UNIX _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64
+    QMAKE_CXXFLAGS += -Wno-zero-as-null-pointer-constant
+}
+win32 {
+    SOURCES -= $$files($$PWD/unrar/posix.cpp)
+    DEFINES += _WIN_ALL WINVER=0x0601 _UNICODE UNICODE
+}
+# <- unrar end
+
 CONFIG += C++14 crypto
-VERSION = 1.3.15
+VERSION = 1.4.0
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"
 QMAKE_TARGET_DESCRIPTION = "SFDLSauger Pro - SFDL Downloader [4] MLCBoard.com"
-QMAKE_TARGET_COPYRIGHT = "2019 - 2023 by GrafSauger"
+QMAKE_TARGET_COPYRIGHT = "2019 - 2025 by GrafSauger"
 
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 DEFINES += QMAKE_TARGET_COMPANY=\\\"$$QMAKE_TARGET_COMPANY\\\"

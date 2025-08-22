@@ -9,13 +9,14 @@
 #include "settings.h"
 #include "crc32.h"
 #include "unrar.h"
+#include "unrarextractor.h"
 
 #include <QMainWindow>
 #include <QtWidgets>
 #include <QObject>
 #include <QInputDialog>
 // #include <QHostAddress>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QThread>
 #include <QDesktopWidget>
 
@@ -123,6 +124,7 @@ private:
 
     // unrar threads
     QList<UnRAR*> g_UnRARWorker;
+    QList<UnrarExtractor*> g_UnRARExtractor;
 
     // sfv check timer
     QList<QTimer*> g_SFVTimer;

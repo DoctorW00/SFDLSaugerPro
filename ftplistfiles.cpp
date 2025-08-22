@@ -40,8 +40,8 @@ void FTPListFiles::ftpTimeout()
     ftp->close();
     ftp->deleteLater();
 
-    sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Timeout! Keine Verbindung zum Server.</font>"));
-    sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
+    emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Timeout! Keine Verbindung zum Server.</font>"));
+    emit sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
 
     delete ftp;
     setFTP();
@@ -125,7 +125,7 @@ void FTPListFiles::ftpCommandFinished(int, bool error)
                 qDebug() << "ftp ConnectToHost error: " << error;
             #endif
 
-            sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Verbindung zum Server fehlgeschalgen!</font>"));
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Verbindung zum Server fehlgeschalgen!</font>"));
         }
     }
 
@@ -137,7 +137,7 @@ void FTPListFiles::ftpCommandFinished(int, bool error)
                 qDebug() << "ftp Login error: " << error;
             #endif
 
-            sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Login fehlgeschalgen!</font>"));
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Login fehlgeschalgen!</font>"));
         }
     }
 
@@ -149,7 +149,7 @@ void FTPListFiles::ftpCommandFinished(int, bool error)
                 qDebug() << "ftp Get error: " << error;
             #endif
 
-            sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Datei GET fehlgeschalgen!</font>"));
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Datei GET fehlgeschalgen!</font>"));
         }
     }
 
@@ -161,7 +161,7 @@ void FTPListFiles::ftpCommandFinished(int, bool error)
                 qDebug() << "ftp List error: " << error;
             #endif
 
-            sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Datei Listing fehlgeschalgen!</font>"));
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Datei Listing fehlgeschalgen!</font>"));
         }
     }
 }
@@ -272,7 +272,7 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
 {
     basePath = path;
 
-    sendLogText(baseSFDL + tr(": Lade Inhalt von Pfad: ") + basePath);
+    emit sendLogText(baseSFDL + tr(": Lade Inhalt von Pfad: ") + basePath);
 
     // setup ftp connects
     setFTP();
@@ -327,12 +327,12 @@ void FTPListFiles::doListInfo(const QUrlInfo& info)
         if(basePath.endsWith("/"))
         {
             fileList.append(basePath + info.name() + "|" + QString::number(info.size()));
-            sendLogText(baseSFDL + ": " + basePath + info.name() + " [" + QString::number(info.size()) + "]");
+            emit sendLogText(baseSFDL + ": " + basePath + info.name() + " [" + QString::number(info.size()) + "]");
         }
         else
         {
             fileList.append(basePath + "/" + info.name() + "|" + QString::number(info.size()));
-            sendLogText(baseSFDL + ": " + basePath + "/" + info.name() + " [" + QString::number(info.size()) + "]");
+            emit sendLogText(baseSFDL + ": " + basePath + "/" + info.name() + " [" + QString::number(info.size()) + "]");
         }
     }
 
@@ -345,12 +345,12 @@ void FTPListFiles::doListInfo(const QUrlInfo& info)
         if(basePath.endsWith("/"))
         {
             pathList.append(basePath + info.name());
-            sendLogText(baseSFDL + ": " + basePath + info.name() + " [Verzeichnis]");
+            emit sendLogText(baseSFDL + ": " + basePath + info.name() + " [Verzeichnis]");
         }
         else
         {
             pathList.append(basePath + "/" + info.name());
-            sendLogText(baseSFDL + ": " + basePath + "/" + info.name() + " [Verzeichnis]");
+            emit sendLogText(baseSFDL + ": " + basePath + "/" + info.name() + " [Verzeichnis]");
         }
     }
 }
@@ -369,8 +369,8 @@ void FTPListFiles::isDone(bool)
             qDebug() << "FTP ErrorString: " << ftp->errorString();
         #endif
 
-        sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + ftp->errorString() + "</font>");
-        sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + ftp->errorString());
+        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + ftp->errorString() + "</font>");
+        emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + ftp->errorString());
     }
     else
     {

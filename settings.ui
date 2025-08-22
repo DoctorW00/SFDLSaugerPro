@@ -38,19 +38,95 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>680</width>
-        <height>360</height>
+        <width>663</width>
+        <height>367</height>
        </rect>
       </property>
       <attribute name="label">
        <string>Allgemein</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
-       <item row="11" column="0">
+       <item row="16" column="1">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="9" column="1" colspan="2">
+        <widget class="QLabel" name="label_4">
+         <property name="font">
+          <font>
+           <pointsize>8</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Benötigt zusätzliche Rechenzeit und kann den Computer für einige Zeit auslasten.</string>
+         </property>
+         <property name="scaledContents">
+          <bool>true</bool>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="10" column="1" colspan="2">
+        <widget class="Line" name="line_2">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1" colspan="2">
+        <widget class="Line" name="line">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QCheckBox" name="chk_crc32">
+         <property name="text">
+          <string>CRC32 Prüfsummen erstellen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="1">
+        <widget class="QCheckBox" name="chk_sfv">
+         <property name="text">
+          <string>Nach SFV Datei suchen und CRC32 vergleichen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="2">
+        <widget class="QPushButton" name="button_openUnrarPath">
+         <property name="text">
+          <string>Öffenen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="line_openDownloadPath">
+         <property name="frame">
+          <bool>true</bool>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="0">
         <widget class="QLabel" name="label_5">
          <property name="font">
           <font>
-           <weight>75</weight>
+           <pointsize>10</pointsize>
            <bold>true</bold>
           </font>
          </property>
@@ -62,31 +138,15 @@
          </property>
         </widget>
        </item>
-       <item row="11" column="1">
-        <widget class="QLineEdit" name="line_unrar_path">
-         <property name="readOnly">
-          <bool>true</bool>
+       <item row="5" column="1" colspan="2">
+        <widget class="QLabel" name="label_2">
+         <property name="font">
+          <font>
+           <pointsize>8</pointsize>
+          </font>
          </property>
-        </widget>
-       </item>
-       <item row="11" column="2">
-        <widget class="QPushButton" name="button_openUnrarPath">
          <property name="text">
-          <string>Öffenen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="8" column="1">
-        <widget class="QCheckBox" name="chk_sfv">
-         <property name="text">
-          <string>Nach SFV Datei suchen und CRC32 vergleichen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="1">
-        <widget class="QCheckBox" name="chk_crc32">
-         <property name="text">
-          <string>CRC32 Prüfsummen erstellen</string>
+          <string>Hier werden deine Downloads abgelegt. Der Pfad muß gültig und Schreiberechte vorhanden sein</string>
          </property>
         </widget>
        </item>
@@ -109,127 +169,7 @@
          </property>
         </widget>
        </item>
-       <item row="9" column="1" colspan="2">
-        <widget class="QLabel" name="label_4">
-         <property name="font">
-          <font>
-           <pointsize>8</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Benötigt zusätzliche Rechenzeit und kann den Computer für einige Zeit auslasten.</string>
-         </property>
-         <property name="scaledContents">
-          <bool>true</bool>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
        <item row="13" column="1">
-        <widget class="QCheckBox" name="chk_unrar">
-         <property name="text">
-          <string>RAR Dateien autoamtisch auspacken</string>
-         </property>
-        </widget>
-       </item>
-       <item row="14" column="1">
-        <widget class="QCheckBox" name="chk_unrar_del">
-         <property name="text">
-          <string>RAR Dateien nach dem erfolgreichen Auspacken automatisch löschen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="1" colspan="2">
-        <widget class="Line" name="line">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLineEdit" name="line_openDownloadPath">
-         <property name="frame">
-          <bool>true</bool>
-         </property>
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="10" column="1" colspan="2">
-        <widget class="Line" name="line_2">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Downloadpfad:</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QPushButton" name="button_openDownloadPath">
-         <property name="text">
-          <string>Öffnen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="15" column="1">
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="7" column="0">
-        <widget class="QLabel" name="label_3">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>CRC32 / SFV:</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1" colspan="2">
-        <widget class="QLabel" name="label_2">
-         <property name="font">
-          <font>
-           <pointsize>8</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Hier werden deine Downloads abgelegt. Der Pfad muß gültig und Schreiberechte vorhanden sein</string>
-         </property>
-        </widget>
-       </item>
-       <item row="12" column="1">
         <widget class="QLabel" name="label_16">
          <property name="font">
           <font>
@@ -241,6 +181,76 @@
          </property>
         </widget>
        </item>
+       <item row="14" column="1">
+        <widget class="QCheckBox" name="chk_unrar">
+         <property name="text">
+          <string>RAR Dateien autoamtisch auspacken</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label">
+         <property name="font">
+          <font>
+           <pointsize>10</pointsize>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Downloadpfad:</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="15" column="1">
+        <widget class="QCheckBox" name="chk_unrar_del">
+         <property name="text">
+          <string>RAR Dateien nach dem erfolgreichen Auspacken automatisch löschen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="1">
+        <widget class="QLineEdit" name="line_unrar_path">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QPushButton" name="button_openDownloadPath">
+         <property name="text">
+          <string>Öffnen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="label_3">
+         <property name="font">
+          <font>
+           <pointsize>10</pointsize>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>CRC32 / SFV:</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="11" column="1">
+        <widget class="QCheckBox" name="chk_use_internal_unrar">
+         <property name="text">
+          <string>Benutze integriertes UnRAR</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
      <widget class="QWidget" name="page_2">
@@ -249,7 +259,7 @@
         <x>0</x>
         <y>0</y>
         <width>680</width>
-        <height>360</height>
+        <height>356</height>
        </rect>
       </property>
       <attribute name="label">
@@ -325,7 +335,7 @@
         <widget class="QLabel" name="label_12">
          <property name="font">
           <font>
-           <weight>75</weight>
+           <pointsize>10</pointsize>
            <bold>true</bold>
           </font>
          </property>
@@ -360,7 +370,7 @@
         <x>0</x>
         <y>0</y>
         <width>680</width>
-        <height>360</height>
+        <height>356</height>
        </rect>
       </property>
       <attribute name="label">
@@ -426,7 +436,7 @@
           <widget class="QLabel" name="label_6">
            <property name="font">
             <font>
-             <weight>75</weight>
+             <pointsize>10</pointsize>
              <bold>true</bold>
             </font>
            </property>
@@ -495,6 +505,14 @@
       </layout>
      </widget>
      <widget class="QWidget" name="page_4">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>680</width>
+        <height>356</height>
+       </rect>
+      </property>
       <attribute name="label">
        <string>Ausnahmen</string>
       </attribute>
@@ -533,7 +551,7 @@
         <widget class="QLabel" name="label_17">
          <property name="font">
           <font>
-           <weight>75</weight>
+           <pointsize>10</pointsize>
            <bold>true</bold>
           </font>
          </property>
@@ -571,7 +589,7 @@
        <item row="0" column="1" colspan="3">
         <widget class="QLabel" name="label_18">
          <property name="text">
-          <string>Hier können Ausnahmen definiert werden, die bei jedem Download ignoriert werden. Als Platzhalter dient der *. Soll z.B. eine Datei mit der Endung exe als Ausnahme aufgenommen werden, muß der Eintrag *.exe lauten.</string>
+          <string>Hier können Ausnahmen definiert werden, die vom Download ausgeschlossen werden. Es wird anhand eines regulären Ausdrucks (RegExp) geprüft, ob die Datei in der Downloadliste eine Übereinstimmung hat. Dies ist ausdrücklich NICHT auf Dateiendungen beschränkt!</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>

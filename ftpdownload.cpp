@@ -11,6 +11,17 @@ FTPDownload::FTPDownload(QStringList data) : data(data)
     port = this->data.at(2);
     user = this->data.at(3);
     pass = this->data.at(4);
+
+    if(user.isEmpty())
+    {
+        user = "anonymous";
+    }
+
+    if(pass.isEmpty())
+    {
+        pass = "sfdl@sauger.pro";
+    }
+
     dir = this->data.at(5);
     dlpath = this->data.at(6);
     dlfile = this->data.at(7);
@@ -141,22 +152,22 @@ void FTPDownload::isDone(bool)
 
         if(ftp->error() == 1)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler"), 3);
+            emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler: ") + ftp->errorString(), 3);
         }
 
         if(ftp->error() == 2)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Host nicht gefunden"), 2);
+            emit statusUpdateFile(id, _tableRow, tr("Host nicht gefunden: ") + ftp->errorString(), 2);
         }
 
         if(ftp->error() == 3)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert"), 2);
+            emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert: ") + ftp->errorString(), 2);
         }
 
         if(ftp->error() == 4)
         {
-            emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden"), 2);
+            emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden: ") + ftp->errorString(), 2);
         }
     }
     else
