@@ -44,11 +44,12 @@ RESOURCES += \
 SOURCES += $$files($$PWD/unrar/*.cpp)
 HEADERS += $$files($$PWD/unrar/*.hpp)
 INCLUDEPATH += $$PWD/unrar
-LIBS += -L$$PWD/unrardll -lunrar
+LIBS += -L$$PWD/unrar -lunrar
 DEFINES += RARDLL
 unix {
     SOURCES -= $$files($$PWD/unrar/win*.cpp)
     SOURCES -= $$files($$PWD/unrar/isnt.cpp)
+    SOURCES -= $$files($$PWD/unrar/motw.cpp)
     DEFINES += _UNIX _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64
     QMAKE_CXXFLAGS += -Wno-zero-as-null-pointer-constant
 }
@@ -79,5 +80,6 @@ win32 {
 macx {
     ICON = icon.icns
 }
+
 
 
