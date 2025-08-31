@@ -1,5 +1,12 @@
 #include "unrarextractor.h"
+
 #include "dll.hpp"
+#ifdef HANDLE
+#undef HANDLE
+#endif
+
+typedef void* RARHandle;
+
 #include "rar.hpp"
 #include <QFile>
 #include <QDir>
@@ -57,7 +64,7 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
     listArchiveData.Callback = UnrarExtractor::unrarCallback;
     listArchiveData.UserData = reinterpret_cast<LPARAM>(this);
 
-    HANDLE hArcList = RAROpenArchiveEx(&listArchiveData);
+    RARHandle hArcList = RAROpenArchiveEx(&listArchiveData);
     if(listArchiveData.OpenResult != ERAR_SUCCESS)
     {
         emit error(tr("Konnte RAR nicht für die Berechnung der Größe öffnen!"));
@@ -92,7 +99,7 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
     archiveData.Callback = UnrarExtractor::unrarCallback;
     archiveData.UserData = reinterpret_cast<LPARAM>(this);
 
-    HANDLE hArc = RAROpenArchiveEx(&archiveData);
+    RARHandle hArc = RAROpenArchiveEx(&archiveData);
 
     if(archiveData.OpenResult != ERAR_SUCCESS)
     {
@@ -155,46 +162,10 @@ void UnrarExtractor::handleProgressUpdate()
     emit updateUnRarProgress(id, currentFileName, progress);
 }
 
-/*
-int CALLBACK UnrarExtractor::unrarCallback(UINT msg, LPARAM userData, LPARAM p1, LPARAM p2)
-{
-    auto extractor = reinterpret_cast<UnrarExtractor*>(userData);
-    if(extractor == nullptr)
-    {
-        return -1;
-    }
-
-    switch(msg)
-    {
-    case UCM_PROCESSDATA:
-        p1;
-        extractor->currentFileProcessedBytes += p2;
-        extractor->cumulativeBytes += p2;
-
-        QMetaObject::invokeMethod(
-            extractor,
-            "handleProgressUpdate",
-            Qt::QueuedConnection
-            );
-
-        QCoreApplication::processEvents();
-        break;
-
-    case UCM_NEEDPASSWORD:
-        emit extractor->error(tr("Passwortgeschützte RAR Dateien werden nicht unterstützt!"));
-        return -1;
-
-    case UCM_CHANGEVOLUMEW:
-    case UCM_CHANGEVOLUME:
-        return 1;
-    }
-
-    return 0;
-}
-*/
-
 int UnrarExtractor::unrarCallback(UINT msg, LPARAM userData, LPARAM p1, LPARAM p2)
 {
+    Q_UNUSED(p1);
+    
     auto extractor = reinterpret_cast<UnrarExtractor*>(userData);
     if (!extractor) return -1;
 
@@ -233,4 +204,5 @@ int UnrarExtractor::unrarCallback(UINT msg, LPARAM userData, LPARAM p1, LPARAM p
 
     return 0;
 }
+
 
