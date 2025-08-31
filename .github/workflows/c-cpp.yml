@@ -1,0 +1,55 @@
+name: C++ Qt5 Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+      
+      - name: Install Qt5
+        run: |
+          brew update
+          brew install qt@5
+      
+      - name: Set up Xcode command-line tools
+        run: |
+          xcode-select --install
+
+      - name: build ftplib
+        run: |
+          git clone https://github.com/DoctorW00/qtftp.git
+          cd qtftp
+          qmake
+          make
+          sudo make install
+
+      - name: build unrar lib
+        run: |
+          cd unrar
+          make lib
+
+      - name: Build C++ with Qt5
+        run: |
+          mkdir build
+          cd build
+          qmake ../
+          make
+
+      - name: Use macdeployqt to deploy the app
+        run: |
+          macdeployqt build/SFDLSaugerPro.app -dmg
+
+      - name: Upload .dmg Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-dmg
+          path: build/release/SFDLSaugerPro.dmg
