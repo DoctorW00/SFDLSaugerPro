@@ -13,26 +13,27 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
-      
+        uses: actions/checkout@v4
+
       - name: Install Qt5
         run: |
           brew update
           brew install qt@5
-      
+
       - name: Set up Xcode command-line tools
         run: |
-          xcode-select --install
+          sudo xcode-select --switch /Applications/Xcode.app
+          xcode-select --install || true
 
-      - name: build ftplib
+      - name: Build ftplib
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
-          qmake
+          /usr/local/opt/qt@5/bin/qmake
           make
           sudo make install
 
-      - name: build unrar lib
+      - name: Build unrar library
         run: |
           cd unrar
           make lib
@@ -41,15 +42,15 @@ jobs:
         run: |
           mkdir build
           cd build
-          qmake ../
+          /usr/local/opt/qt@5/bin/qmake ../
           make
 
       - name: Use macdeployqt to deploy the app
         run: |
-          macdeployqt build/SFDLSaugerPro.app -dmg
+          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg
 
       - name: Upload .dmg Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: build/release/SFDLSaugerPro.dmg
+          path: build/SFDLSaugerPro.dmg
