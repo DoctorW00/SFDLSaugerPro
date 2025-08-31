@@ -19,6 +19,15 @@ jobs:
         run: |
           brew update
           brew install qt@5
+          brew link qt@5 --force
+
+      - name: Debug Qt5 Installation
+        run: |
+          echo "Checking Qt5 installation..."
+          ls -l /usr/local/opt/qt@5/bin || true
+          ls -l /opt/homebrew/opt/qt@5/bin || true
+          which qmake
+          qmake --version || true
 
       - name: Set up Xcode command-line tools
         run: |
@@ -29,7 +38,7 @@ jobs:
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
-          /usr/local/opt/qt/bin/qmake
+          /opt/homebrew/opt/qt@5/bin/qmake || /usr/local/opt/qt@5/bin/qmake
           make
           sudo make install
 
@@ -42,12 +51,12 @@ jobs:
         run: |
           mkdir build
           cd build
-          /usr/local/opt/qt/bin/qmake ../
+          /opt/homebrew/opt/qt@5/bin/qmake ../ || /usr/local/opt/qt@5/bin/qmake ../
           make
 
       - name: Use macdeployqt to deploy the app
         run: |
-          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg || /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg
 
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
