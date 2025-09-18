@@ -46,6 +46,11 @@ jobs:
         run: |
           cd unrar
           make lib
+          sudo make install-lib
+          sudo mkdir -p /usr/local/lib
+          sudo cp libunrar.dylib /usr/local/lib/ || true
+          sudo cp unrar.hpp /usr/local/include/ || true
+          sudo ln -sf /usr/local/lib/libunrar.dylib /usr/local/lib/libunrar.so || true
 
       - name: Build C++ with Qt5
         run: |
@@ -53,6 +58,15 @@ jobs:
           cd build
           /opt/homebrew/opt/qt@5/bin/qmake ../ || /usr/local/opt/qt@5/bin/qmake ../
           make
+
+      - name: Copy unrar lib to SFDLSaugerPro.app
+        run: |
+          mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
+          cp /usr/local/lib/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/ || cp /usr/lib/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/ || true
+          cp /usr/local/lib/libunrar.so build/SFDLSaugerPro.app/Contents/Frameworks/ || ln -sf libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.so
+          install_name_tool -change /usr/local/lib/libunrar.dylib @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro || true
+          install_name_tool -change /usr/lib/libunrar.dylib @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro || true
+          install_name_tool -change /usr/local/lib/libunrar.so @executable_path/../Frameworks/libunrar.so build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro || true
 
       - name: Use macdeployqt to deploy the app
         run: |
