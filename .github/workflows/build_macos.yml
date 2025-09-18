@@ -46,7 +46,8 @@ jobs:
         run: |
           cd unrar
           make lib
-          sudo make install-lib
+          # sudo make install-lib
+          ls -la
 
       - name: Build C++ with Qt5
         run: |
