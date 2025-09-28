@@ -62,7 +62,20 @@ jobs:
 
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg || /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app || /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app
+
+      - name: Sign the app bundle
+        run: |
+          codesign --force --deep --sign "-" build/SFDLSaugerPro.app
+          codesign -dv --verbose=4 build/SFDLSaugerPro.app || true
+          find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
+            codesign --force --sign "-" "$lib" || true
+          done
+
+      - name: Create DMG package
+        run: |
+          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
+          codesign --force --sign "-" build/SFDLSaugerPro.dmg
 
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
