@@ -52,17 +52,17 @@ jobs:
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents
           cat > build/SFDLSaugerPro.app/Contents/Info.plist << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>NSDocumentsFolderUsageDescription</key>
-    <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
-    <key>NSDownloadsFolderUsageDescription</key>
-    <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
-</dict>
-</plist>
-EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>NSDocumentsFolderUsageDescription</key>
+              <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
+              <key>NSDownloadsFolderUsageDescription</key>
+              <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
+          </dict>
+          </plist>
+          EOF
       - name: Copy unrar lib to SFDLSaugerPro.app
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
