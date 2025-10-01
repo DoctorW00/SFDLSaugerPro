@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          qmake
+          qmake ../
           make
       - name: Create .desktop file
         run: |
