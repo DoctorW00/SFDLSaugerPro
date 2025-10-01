@@ -29,13 +29,18 @@ jobs:
             libqt5svg5-dev \
             libqt5xml5 \
             libgl1-mesa-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-pulseaudio \
+            gstreamer1.0-alsa \
             wget \
             fuse \
             squashfs-tools \
             libarchive-dev \
-            git
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
+            git \
+            --allow-downgrades
+          wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x linuxdeployqt-continuous-x86_64.AppImage
       - name: Build ftplib
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
@@ -71,14 +76,14 @@ jobs:
           mkdir -p SFDLSaugerPro.AppDir/usr/lib
           mkdir -p SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps
           cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
-          cp -r /usr/lib/x86_64-linux-gnu/libQt5* SFDLSaugerPro.AppDir/usr/lib/
-          cp -r /usr/lib/x86_64-linux-gnu/qt5/plugins SFDLSaugerPro.AppDir/usr/lib/
+          # cp -r /usr/lib/x86_64-linux-gnu/libQt5* SFDLSaugerPro.AppDir/usr/lib/
+          # cp -r /usr/lib/x86_64-linux-gnu/qt5/plugins SFDLSaugerPro.AppDir/usr/lib/
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/
           cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
-          ./linuxdeploy-x86_64.AppImage --appdir SFDLSaugerPro.AppDir --output appimage
+          ./linuxdeployqt-continuous-x86_64.AppImage SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop -appimage
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro.AppImage
-          path: 'SFDLSaugerPro.AppImage'
+          path: ./SFDLSaugerPro.AppImage
