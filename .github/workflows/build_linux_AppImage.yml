@@ -60,7 +60,7 @@ jobs:
           cat << EOF > SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop
           [Desktop Entry]
           Name=SFDLSaugerPro
-          Exec=/usr/bin/SFDLSaugerPro
+          Exec=SFDLSaugerPro
           Icon=SFDLSaugerPro
           Type=Application
           Categories=Utility;
