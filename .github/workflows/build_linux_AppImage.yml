@@ -35,6 +35,7 @@ jobs:
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
+          qmake
           make
           sudo make install
       - name: Build unrar library
