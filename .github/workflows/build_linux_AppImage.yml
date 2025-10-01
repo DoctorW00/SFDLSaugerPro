@@ -1,0 +1,79 @@
+name: Build Qt5 Linux AppImage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            qt5-default \
+            qtbase5-dev \
+            qtmultimedia5-dev \
+            qt5-qmake \
+            libgl1-mesa-dev \
+            libqt5multimedia5-plugins \
+            wget \
+            fuse \
+            squashfs-tools \
+            libarchive-dev \
+            git
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+      - name: Build ftplib
+        run: |
+          git clone https://github.com/DoctorW00/qtftp.git
+          cd qtftp
+          make
+          sudo make install
+      - name: Build unrar library
+        run: |
+          cd unrar
+          make lib
+          ls -la
+      - name: Build C++ with Qt5
+        run: |
+          mkdir build
+          cd build
+          qmake
+          make
+      - name: Create .desktop file
+        run: |
+          mkdir -p SFDLSaugerPro.AppDir/usr/share/applications
+          cat << EOF > SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop
+          [Desktop Entry]
+          Type=Application
+          Name=SFDLSaugerPro
+          Exec=/usr/bin/SFDLSaugerPro
+          Icon=icon
+          Comment=SFDL Download App
+          Categories=Utility;
+          EOF
+      - name: Create AppImage
+        run: |
+          mkdir -p SFDLSaugerPro.AppDir/usr/bin
+          mkdir -p SFDLSaugerPro.AppDir/usr/lib
+          mkdir -p SFDLSaugerPro.AppDir/usr/share/icons
+          cp your_app_binary SFDLSaugerPro.AppDir/usr/bin/
+          cp -r /usr/lib/x86_64-linux-gnu/libQt5* SFDLSaugerPro.AppDir/usr/lib/
+          cp -r /usr/lib/x86_64-linux-gnu/qt5/plugins SFDLSaugerPro.AppDir/usr/lib/
+          cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/
+          cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/
+          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/icon.png
+          ./linuxdeploy-x86_64.AppImage --appdir SFDLSaugerPro.AppDir --output appimage
+      - name: Upload AppImage as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SFDLSaugerPro.AppImage
+          path: '*.AppImage'
