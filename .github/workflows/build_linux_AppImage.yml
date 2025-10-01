@@ -72,7 +72,7 @@ jobs:
           mkdir -p SFDLSaugerPro.AppDir/usr/bin
           mkdir -p SFDLSaugerPro.AppDir/usr/lib
           mkdir -p SFDLSaugerPro.AppDir/usr/share/icons
-          cp your_app_binary SFDLSaugerPro.AppDir/usr/bin/
+          cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/
           cp -r /usr/lib/x86_64-linux-gnu/libQt5* SFDLSaugerPro.AppDir/usr/lib/
           cp -r /usr/lib/x86_64-linux-gnu/qt5/plugins SFDLSaugerPro.AppDir/usr/lib/
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/
