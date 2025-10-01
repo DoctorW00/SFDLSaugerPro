@@ -77,7 +77,10 @@ jobs:
           cp -r /usr/lib/x86_64-linux-gnu/qt5/plugins SFDLSaugerPro.AppDir/usr/lib/
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/
           cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/
-          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/icon.png
+          cp icon.png SFDLSaugerPro.AppDir/icon.png
+          cp icon.png SFDLSaugerPro.AppDir/.DirIcon
+          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x515/icon.png
+          cp SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop SFDLSaugerPro.AppDir/SFDLSaugerPro.desktop
           ./linuxdeploy-x86_64.AppImage --appdir SFDLSaugerPro.AppDir --output appimage
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
