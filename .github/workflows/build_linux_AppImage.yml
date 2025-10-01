@@ -21,6 +21,7 @@ jobs:
             qtbase5-dev \
             qtbase5-dev-tools \
             qtmultimedia5-dev \
+            *qt5*dev* \
             qt5-qmake \
             libqt5core5a \
             libqt5gui5 \
