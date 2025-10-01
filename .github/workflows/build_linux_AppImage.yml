@@ -22,8 +22,13 @@ jobs:
             qtbase5-dev-tools \
             qtmultimedia5-dev \
             qt5-qmake \
-            libgl1-mesa-dev \
+            libqt5core5a \
+            libqt5gui5 \
+            libqt5widgets5 \
             libqt5multimedia5-plugins \
+            libqt5svg5-dev \
+            libqt5xml5 \
+            libgl1-mesa-dev \
             wget \
             fuse \
             squashfs-tools \
@@ -35,11 +40,7 @@ jobs:
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
-          rm -rf examples
-          rm -f examples/Makefile
-          mkdir build
-          cd build
-          qmake ../qtftp.pro CONFIG+=no_examples
+          qmake
           make
           sudo make install
       - name: Build unrar library
