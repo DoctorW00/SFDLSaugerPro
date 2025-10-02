@@ -72,7 +72,7 @@ private slots:
     void saveWindowStatus();
     void loadWindowStatus();
     QString returnSubPath(QString fullPath, QString splitter);
-    QString removeDuplicateSlashes(const QString& path);
+    QString removeDuplicateSlashes(QString path);
 
     // ftp downloads
     void startDownloadButton();

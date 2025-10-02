@@ -96,7 +96,8 @@ void FTPDownload::process()
     connect(ftp, SIGNAL(dataTransferProgress(qint64,qint64)), this, SLOT(updateProgress(qint64, qint64)));
 
     file = new QFile(this);
-    file->setFileName(dlpath + dlfile);
+    // file->setFileName(dlpath + dlfile);
+    file->setFileName(dlpath);
 
     if(file->size())
     {

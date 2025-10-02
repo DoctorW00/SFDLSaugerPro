@@ -1272,7 +1272,7 @@ QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
     return '/' + subparts.join('/');
 }
 
-QString SFDLSauger::removeDuplicateSlashes(const QString& path)
+QString SFDLSauger::removeDuplicateSlashes(QString path)
 {
     QStringList parts = path.split('/', QString::SkipEmptyParts);
     return parts.join('/');
