@@ -29,7 +29,6 @@ jobs:
             libqt5multimedia5-plugins \
             libqt5svg5-dev \
             libqt5xml5 \
-            qt5-linguist \
             libgl1-mesa-dev \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
