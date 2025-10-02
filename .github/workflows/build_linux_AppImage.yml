@@ -21,6 +21,7 @@ jobs:
             ninja-build \
             qtbase5-dev \
             qtbase5-dev-tools \
+            libqt5multimedia5 \
             qtmultimedia5-dev \
             qt5-qmake \
             libqt5core5a \
@@ -37,11 +38,20 @@ jobs:
             wget \
             fuse \
             libfuse2 \
-            libglib2.0-dev \
             squashfs-tools \
             libarchive-dev \
             cmake \
             git \
+            libxmlb1 \
+            llvm \
+            gzip \
+            findutils \
+            libgcc-9-dev \
+            libgles-dev \
+            libglib2.0-dev \
+            libglib2.0-dev-bin \
+            libglvnd-dev \
+            libglx-dev
             --allow-downgrades
           wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
           chmod +x linuxdeployqt-continuous-x86_64.AppImage
@@ -80,9 +90,12 @@ jobs:
           mkdir -p SFDLSaugerPro.AppDir/usr/lib
           mkdir -p SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps
           cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
-          cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/
-          cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/
+          cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
+          cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/libunrar.a
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
+          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/icon.png
+          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/icon.png
+          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/SFDLSaugerPro.png
           ./linuxdeployqt-continuous-x86_64.AppImage SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop -bundle-non-qt-libs -appimage
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
