@@ -44,7 +44,12 @@ RESOURCES += \
 SOURCES += $$files($$PWD/unrar/*.cpp)
 HEADERS += $$files($$PWD/unrar/*.hpp)
 INCLUDEPATH += $$PWD/unrar
-LIBS += -L$$PWD/unrar -lunrar
+unix {
+    LIBS += -L$$PWD/unrar -lunrar
+}
+win32 {
+    LIBS += -L$$PWD/unrardll -lunrar
+}
 DEFINES += RARDLL
 unix {
     SOURCES -= $$files($$PWD/unrar/win*.cpp)
@@ -60,7 +65,7 @@ win32 {
 # <- unrar end
 
 CONFIG += C++14 crypto
-VERSION = 1.4.0
+VERSION = 1.4.1
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"

@@ -122,7 +122,6 @@ void SFDLSauger::addLogText(QString txt)
 // open path in os file explorer
 void SFDLSauger::openFileExplorer()
 {
-
     QString id = ui->tabWidget->tabToolTip(ui->tabWidget->currentIndex());
     QString path = settingsWindow->_downloadPath + id;
 
@@ -561,7 +560,6 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     }
 
     // file table
-    // int fileColumCount = 15;
     int fileColumCount = 16;
 
     file_tbl = allTableWidgets[0];
@@ -626,7 +624,6 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
             }
         }
 
-        // QFont filelFont("Times", 10, QFont::Normal);
         QFont filelFont(defaultFont.defaultFamily(), 10, QFont::Normal);
 
         QTableWidgetItem *CHKBOX = new QTableWidgetItem();
@@ -654,7 +651,9 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
             break;
         }
 
-        QTableWidgetItem *FILE = new QTableWidgetItem(f3);
+        QString dlFileNameWithSub = files.at(i).split("|").at(0);
+        dlFileNameWithSub = removeDuplicateSlashes(returnSubPath(dlFileNameWithSub, tabName));
+        QTableWidgetItem *FILE = new QTableWidgetItem(dlFileNameWithSub);
         FILE->setFont(filelFont);
         file_tbl->setItem(i, 2, FILE);
 
@@ -1253,6 +1252,32 @@ void SFDLSauger::downloadError(QString error)
     MsgWarning(tr("Download Fehler"), "[" + error + tr("] Allgemeiner FTP Download Fehler!"));
 }
 
+QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
+{
+    QStringList parts = fullPath.split('/', QString::SkipEmptyParts);
+
+    int index = parts.indexOf(splitter);
+
+    if (index == -1)
+    {
+        return QString();
+    }
+
+    QStringList subparts = parts.mid(index + 1);
+    if (subparts.isEmpty())
+    {
+        return QString();
+    }
+
+    return '/' + subparts.join('/');
+}
+
+QString SFDLSauger::removeDuplicateSlashes(const QString& path)
+{
+    QStringList parts = path.split('/', QString::SkipEmptyParts);
+    return parts.join('/');
+}
+
 // start download in tab
 void SFDLSauger::startDownload(QString tabID = "")
 {
@@ -1297,7 +1322,6 @@ void SFDLSauger::startDownload(QString tabID = "")
                 break;
             }
 
-            // if(widget3->item(i, 0)->checkState() == Qt::Checked && widget3->item(i, 7)->text().toInt() == 0 || widget3->item(i, 7)->text().toInt() == 9)
             if(widget3->item(i, 0)->checkState() == Qt::Checked &&
                     widget3->item(i, 7)->text().toInt() == 0 ||
                     widget3->item(i, 7)->text().toInt() == 9 ||
@@ -1311,8 +1335,16 @@ void SFDLSauger::startDownload(QString tabID = "")
                     fullDownloadPath = settingsWindow->_downloadPath + id + "/";
                 }
 
-                QString fileRelativ = widget3->item(i, 2)->text();
-                QString fileSubPath = dirFromFilePath(fileRelativ).at(0);
+                // name of the file
+                QString fileName = widget3->item(i, 2)->text();
+                QFileInfo pureFileName(fileName);
+                if(!pureFileName.fileName().isEmpty())
+                {
+                    fileName = pureFileName.fileName();
+                }
+
+                QString fileRelativ = widget3->item(i, 1)->text();
+                QString fileSubPath = returnSubPath(fileRelativ, id);
 
                 if(!fileSubPath.isEmpty())
                 {
@@ -1326,6 +1358,9 @@ void SFDLSauger::startDownload(QString tabID = "")
                     }
                 }
 
+                fullDownloadPath.replace(fileName, ""); // remove filename from sub-path
+                fullDownloadPath = removeDuplicateSlashes(fullDownloadPath);
+
                 // create local download path (if needed)
                 QDir dir;
                 if(!dir.mkpath(fullDownloadPath))
@@ -1334,6 +1369,9 @@ void SFDLSauger::startDownload(QString tabID = "")
                     break;
                 }
 
+                QString fullDownloadPathWithFile = fullDownloadPath + "/" + fileName;
+                fullDownloadPathWithFile = removeDuplicateSlashes(fullDownloadPathWithFile);
+
                 QStringList downloadList;
                 downloadList.append(id);                                                  // tab id
                 downloadList.append(host);
@@ -1341,7 +1379,7 @@ void SFDLSauger::startDownload(QString tabID = "")
                 downloadList.append(user);
                 downloadList.append(pass);
                 downloadList.append(dirFromFilePath(widget3->item(i, 1)->text()).at(0));  // ftp dir
-                downloadList.append(fullDownloadPath);                                    // download path
+                downloadList.append(fullDownloadPathWithFile);                            // download path
                 downloadList.append(dirFromFilePath(widget3->item(i, 1)->text()).at(1));  // file fulll path
                 downloadList.append(QString::number(i));                                  // rowCount
                 downloadList.append(settingsWindow->_ftpProxyHost);

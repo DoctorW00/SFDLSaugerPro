@@ -71,6 +71,8 @@ private slots:
     void changeCHKBOX(QString id, bool lock);
     void saveWindowStatus();
     void loadWindowStatus();
+    QString returnSubPath(QString fullPath, QString splitter);
+    QString removeDuplicateSlashes(const QString& path);
 
     // ftp downloads
     void startDownloadButton();

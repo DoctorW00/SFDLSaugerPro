@@ -286,23 +286,65 @@ void Settings::unrarCheckBoxes()
     saveSettings();
 }
 
+QString Settings::selectFolder(QString home, QString title)
+{
+    QFileDialog dialog;
+    dialog.setDirectory(home);
+    dialog.setWindowTitle(title);
+    dialog.setFileMode(QFileDialog::Directory);
+    dialog.setOption(QFileDialog::ShowDirsOnly, true);
+    dialog.setOption(QFileDialog::DontResolveSymlinks, true);
+    dialog.setOption(QFileDialog::DontUseNativeDialog, false);
+    if(dialog.exec())
+    {
+        return dialog.selectedFiles().first();
+    }
+    return QString();
+}
+
 // open download path
 void Settings::on_button_openDownloadPath_clicked()
 {
     // user home path
-    QString home = QStandardPaths::locate(QStandardPaths::HomeLocation, QString(), QStandardPaths::LocateDirectory);
+    QString home;
+    if(_downloadPath.isEmpty())
+    {
+        home = QStandardPaths::locate(QStandardPaths::HomeLocation, QString(), QStandardPaths::LocateDirectory);
+    }
+    else
+    {
+        home = _downloadPath;
+    }
 
     // select new download path
-    QString downloadPath = QFileDialog::getExistingDirectory(this, tr("Wo sollen Downloads gespeichert werden?"), home, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString downloadPath = selectFolder(home, tr("Wo sollen Downloads gespeichert werden?"));
 
     if(!downloadPath.isEmpty())
     {
         QFileInfo path(downloadPath);
         QStorageInfo storage(downloadPath);
 
-        if(!storage.isReadOnly() && path.exists() && path.isDir() && path.isWritable())
+        QStringList errorReasons;
+        if(storage.isReadOnly())
         {
-            if(!downloadPath.endsWith("/"))
+            errorReasons << tr("Das Verzeichnis ist schreibgeschützt.");
+        }
+        if(!path.exists())
+        {
+            errorReasons << tr("Das Verzeichnis existiert nicht.");
+        }
+        if(!path.isDir())
+        {
+            errorReasons << tr("Die Auswahl ist kein Verzeichnis.");
+        }
+        if(!path.isWritable())
+        {
+            errorReasons << tr("Das Verzeichnis ist nicht beschreibbar.");
+        }
+
+        if (errorReasons.isEmpty())
+        {
+            if (!downloadPath.endsWith("/"))
             {
                 downloadPath = downloadPath + "/";
             }
@@ -322,7 +364,8 @@ void Settings::on_button_openDownloadPath_clicked()
         }
         else
         {
-            QMessageBox::warning(this, tr("Ungültiger Speicherpfad"), tr("Der Pfad \n\n") + downloadPath + "\n\nist ungültig und kann derher nicht zum Speichern von Downloads verwendet werden!");
+            QString errorMessage = errorReasons.join("\n");
+            QMessageBox::warning(this, tr("Ungültiger Speicherpfad"), tr("Der Pfad\n\n") + downloadPath + tr("\n\nist ungültig! Grund: \n") + errorMessage);
         }
 
         saveSettings();

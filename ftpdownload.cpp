@@ -103,7 +103,6 @@ void FTPDownload::process()
         // continue download
         if(file->open(QIODevice::Append) && file->isWritable())
         {
-
             ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
             ftp->connectToHost(host, port.toInt());
             ftp->login(user, pass);
