@@ -42,7 +42,6 @@ jobs:
             libarchive-dev \
             cmake \
             git \
-            libxmlb1 \
             llvm \
             gzip \
             findutils \
