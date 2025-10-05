@@ -5,6 +5,7 @@
 #include <QMutex>
 #include <QtFtp/QFtp>
 #include <QFile>
+#include <QDir>
 #include <QTcpSocket>
 #include <QEventLoop>
 #include <QNetworkProxy>

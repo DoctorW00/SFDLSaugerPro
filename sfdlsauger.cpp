@@ -1335,31 +1335,12 @@ void SFDLSauger::startDownload(QString tabID = "")
                     fullDownloadPath = settingsWindow->_downloadPath + id + "/";
                 }
 
-                // name of the file
-                QString fileName = widget3->item(i, 2)->text();
-                QFileInfo pureFileName(fileName);
-                if(!pureFileName.fileName().isEmpty())
-                {
-                    fileName = pureFileName.fileName();
-                }
+                QString ftpDir = dirFromFilePath(widget3->item(i, 1)->text()).at(0);
+                QString fileName = dirFromFilePath(widget3->item(i, 1)->text()).at(1);
+                QString subPath = returnSubPath(ftpDir, id);
 
-                QString fileRelativ = widget3->item(i, 1)->text();
-                QString fileSubPath = returnSubPath(fileRelativ, id);
-
-                if(!fileSubPath.isEmpty())
-                {
-                    if(fileSubPath.endsWith("/"))
-                    {
-                       fullDownloadPath = fullDownloadPath + fileSubPath;
-                    }
-                    else
-                    {
-                        fullDownloadPath = fullDownloadPath + fileSubPath + "/";
-                    }
-                }
-
-                fullDownloadPath.replace(fileName, ""); // remove filename from sub-path
-                fullDownloadPath = removeDuplicateSlashes(fullDownloadPath);
+                // make sure paths are working cross platform
+                fullDownloadPath = QDir::toNativeSeparators(QDir::cleanPath(fullDownloadPath + "/" + subPath));
 
                 // create local download path (if needed)
                 QDir dir;
@@ -1369,19 +1350,16 @@ void SFDLSauger::startDownload(QString tabID = "")
                     break;
                 }
 
-                QString fullDownloadPathWithFile = fullDownloadPath + "/" + fileName;
-                fullDownloadPathWithFile = removeDuplicateSlashes(fullDownloadPathWithFile);
-
                 QStringList downloadList;
-                downloadList.append(id);                                                  // tab id
+                downloadList.append(id);                            // tab id
                 downloadList.append(host);
                 downloadList.append(port);
                 downloadList.append(user);
                 downloadList.append(pass);
-                downloadList.append(dirFromFilePath(widget3->item(i, 1)->text()).at(0));  // ftp dir
-                downloadList.append(fullDownloadPathWithFile);                            // download path
-                downloadList.append(dirFromFilePath(widget3->item(i, 1)->text()).at(1));  // file fulll path
-                downloadList.append(QString::number(i));                                  // rowCount
+                downloadList.append(ftpDir);                        // ftp dir
+                downloadList.append(fullDownloadPath);              // download path
+                downloadList.append(fileName);                      // filename to download
+                downloadList.append(QString::number(i));            // rowCount
                 downloadList.append(settingsWindow->_ftpProxyHost);
                 downloadList.append(settingsWindow->_ftpProxyPort);
                 downloadList.append(settingsWindow->_ftpProxyUser);

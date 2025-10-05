@@ -286,22 +286,6 @@ void Settings::unrarCheckBoxes()
     saveSettings();
 }
 
-QString Settings::selectFolder(QString home, QString title)
-{
-    QFileDialog dialog;
-    dialog.setDirectory(home);
-    dialog.setWindowTitle(title);
-    dialog.setFileMode(QFileDialog::Directory);
-    dialog.setOption(QFileDialog::ShowDirsOnly, true);
-    dialog.setOption(QFileDialog::DontResolveSymlinks, true);
-    dialog.setOption(QFileDialog::DontUseNativeDialog, false);
-    if(dialog.exec())
-    {
-        return dialog.selectedFiles().first();
-    }
-    return QString();
-}
-
 // open download path
 void Settings::on_button_openDownloadPath_clicked()
 {
@@ -317,7 +301,7 @@ void Settings::on_button_openDownloadPath_clicked()
     }
 
     // select new download path
-    QString downloadPath = selectFolder(home, tr("Wo sollen Downloads gespeichert werden?"));
+    QString downloadPath = QFileDialog::getExistingDirectory(this, tr("Wo sollen Downloads gespeichert werden?"), home, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     if(!downloadPath.isEmpty())
     {
@@ -361,14 +345,14 @@ void Settings::on_button_openDownloadPath_clicked()
             ui->bar_openDownloadPath->setMinimum(0);
             ui->bar_openDownloadPath->setValue(progress);
             ui->bar_openDownloadPath->setFormat(storage.displayName() + " (" + storage.fileSystemType() + ") " + bytes2Human(storage.bytesAvailable()) + tr(" von ") + bytes2Human(storage.bytesTotal()) + tr(" verfügbar"));
+
+            saveSettings();
         }
         else
         {
             QString errorMessage = errorReasons.join("\n");
             QMessageBox::warning(this, tr("Ungültiger Speicherpfad"), tr("Der Pfad\n\n") + downloadPath + tr("\n\nist ungültig! Grund: \n") + errorMessage);
         }
-
-        saveSettings();
     }
 }
 

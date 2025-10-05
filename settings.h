@@ -62,7 +62,6 @@ private slots:
     void on_btn_del_exception_clicked();
     void on_line_new_exception_returnPressed();
     bool checkForExisting(QListWidget *listWidget, QString entry);
-    QString selectFolder(QString home, QString title);
 
 private:
     Ui::Settings *ui;
