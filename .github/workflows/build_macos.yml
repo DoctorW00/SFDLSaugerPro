@@ -127,6 +127,8 @@ jobs:
           openssl pkcs12 -info -in codesign.p12 -passin "pass:$P12_PASS" -nokeys || { echo "Invalid P12 file or password"; exit 1; }
           echo "Checking codesign.crt..."
           openssl x509 -in codesign.crt -text -noout || { echo "Invalid certificate"; exit 1; }
+          echo "Certificate details:"
+          openssl x509 -in codesign.crt -noout -subject -issuer -dates
       - name: Import Certificate into Keychain
         env:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
@@ -135,7 +137,7 @@ jobs:
           gtimeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
           echo "Certificate imported successfully"
           echo "Adding trusted cert..."
-          security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt || { echo "Failed to add trusted cert"; exit 1; }
+          gtimeout 30 security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt || { echo "Failed to add trusted cert"; exit 1; }
           echo "Trusted cert added successfully"
           echo "Listing code signing identities..."
           security find-identity -v -p codesigning ~/Library/Keychains/login.keychain-db || { echo "Failed to list identities"; exit 1; }
@@ -144,10 +146,10 @@ jobs:
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
       - name: Sign the app bundle
         run: |
-          codesign --force --deep --entitlements entitlements.plist --sign "SFDLSaugerPro" build/SFDLSaugerPro.app
+          codesign --force --deep --entitlements entitlements.plist --sign "SFDLSaugerPro" build/SFDLSaugerPro.app || { echo "Codesign failed"; exit 1; }
           codesign -dv --verbose=4 build/SFDLSaugerPro.app
           find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
-            codesign --force --sign "SFDLSaugerPro" "$lib"
+            codesign --force --sign "SFDLSaugerPro" "$lib" || { echo "Failed to sign $lib"; exit 1; }
           done
       - name: Create DMG package
         run: |
