@@ -70,15 +70,32 @@ jobs:
       - name: Fix library paths
         run: |
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+      - name: Generate Self-Signed Code Signing Certificate
+        run: |
+          openssl genrsa -out codesign.key 2048
+          openssl req -new -key codesign.key -out codesign.csr -subj "/CN=SFDLSaugerPro/O=GrafSauger/C=DE"
+          cat > codesign.ext << EOF
+          basicConstraints = CA:FALSE
+          keyUsage = digitalSignature
+          extendedKeyUsage = codeSigning
+          EOF
+          openssl x509 -req -days 1825 -in codesign.csr -signkey codesign.key -out codesign.crt -extfile codesign.ext
+          openssl pkcs12 -export -out codesign.p12 -inkey codesign.key -in codesign.crt -passout pass:
+      - name: Import Certificate into Keychain
+        run: |
+          security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
+          security import codesign.p12 -P "" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign
+          security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt
+          security find-identity -v -p codesigning
       - name: Use macdeployqt to deploy the app
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
       - name: Sign the app bundle
         run: |
-          codesign --force --deep --sign "-" build/SFDLSaugerPro.app
+          codesign --force --deep --entitlements entitlements.plist --sign "SFDLSaugerPro" build/SFDLSaugerPro.app
           codesign -dv --verbose=4 build/SFDLSaugerPro.app
           find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
-            codesign --force --sign "-" "$lib"
+            codesign --force --sign "SFDLSaugerPro" "$lib"
           done
       - name: Create DMG package
         run: |
