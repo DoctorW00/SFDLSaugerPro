@@ -92,6 +92,13 @@ jobs:
       - name: Install coreutils for gtimeout
         run: |
           brew install coreutils
+          echo "Adding coreutils to PATH..."
+          echo "/opt/homebrew/opt/coreutils/libexec/gnubin" >> $GITHUB_PATH
+      - name: Verify gtimeout Installation
+        run: |
+          echo "Checking gtimeout..."
+          gtimeout --version || { echo "gtimeout not found"; exit 1; }
+          echo "gtimeout is installed"
       - name: Debug Secrets Presence
         run: |
           if [ -z "${{ secrets.KEYCHAIN_PASSWORD }}" ]; then echo "KEYCHAIN_PASSWORD is not set"; exit 1; fi
