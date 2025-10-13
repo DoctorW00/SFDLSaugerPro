@@ -96,6 +96,8 @@ jobs:
           echo "/opt/homebrew/opt/coreutils/libexec/gnubin" >> $GITHUB_PATH
       - name: Verify gtimeout Installation
         run: |
+          echo "Checking PATH..."
+          echo $PATH
           echo "Checking gtimeout..."
           gtimeout --version || { echo "gtimeout not found"; exit 1; }
           echo "gtimeout is installed"
@@ -130,7 +132,7 @@ jobs:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
         run: |
           echo "Starting certificate import..."
-          /usr/local/bin/gtimeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
+          gtimeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
           echo "Certificate imported successfully"
           echo "Adding trusted cert..."
           security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt || { echo "Failed to add trusted cert"; exit 1; }
