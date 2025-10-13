@@ -89,7 +89,14 @@ jobs:
           if [ -z "${{ secrets.KEYCHAIN_PASSWORD }}" ]; then echo "KEYCHAIN_PASSWORD is not set"; exit 1; fi
           if [ -z "${{ secrets.P12_PASSWORD }}" ]; then echo "P12_PASSWORD is not set"; exit 1; fi
           echo "Secrets are set"
-      
+      - name: Install coreutils for gtimeout
+        run: |
+          brew install coreutils
+      - name: Debug Secrets Presence
+        run: |
+          if [ -z "${{ secrets.KEYCHAIN_PASSWORD }}" ]; then echo "KEYCHAIN_PASSWORD is not set"; exit 1; fi
+          if [ -z "${{ secrets.P12_PASSWORD }}" ]; then echo "P12_PASSWORD is not set"; exit 1; fi
+          echo "Secrets are set"
       - name: Setup Keychain
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -103,7 +110,6 @@ jobs:
           echo "Checking keychain status..."
           security show-keychain-info ~/Library/Keychains/login.keychain-db || { echo "Login keychain not found or locked"; exit 1; }
           echo "Login keychain is ready"
-      
       - name: Verify Certificate and P12
         env:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
@@ -112,13 +118,12 @@ jobs:
           openssl pkcs12 -info -in codesign.p12 -passin "pass:$P12_PASS" -nokeys || { echo "Invalid P12 file or password"; exit 1; }
           echo "Checking codesign.crt..."
           openssl x509 -in codesign.crt -text -noout || { echo "Invalid certificate"; exit 1; }
-      
       - name: Import Certificate into Keychain
         env:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
         run: |
           echo "Starting certificate import..."
-          timeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
+          /usr/local/bin/gtimeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
           echo "Certificate imported successfully"
           echo "Adding trusted cert..."
           security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt || { echo "Failed to add trusted cert"; exit 1; }
