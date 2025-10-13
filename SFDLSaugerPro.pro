@@ -65,7 +65,7 @@ win32 {
 # <- unrar end
 
 CONFIG += C++14 crypto
-VERSION = 1.4.3
+VERSION = 1.4.4
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"
@@ -80,10 +80,14 @@ DEFINES += QMAKE_TARGET_COPYRIGHT=\"\\\"$$QMAKE_TARGET_COPYRIGHT\\\"\"
 
 win32 {
     RC_ICONS = icon.ico
+    QMAKE_LFLAGS += /FORCE:MULTIPLE
+    CONFIG += static
+    LIBS += -lws2_32 -luser32 -lshell32
 }
 
 macx {
     ICON = icon.icns
+	QMAKE_ENTITLEMENTS = $$PWD/entitlements.plist
 }
 
 

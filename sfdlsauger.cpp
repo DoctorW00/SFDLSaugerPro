@@ -55,6 +55,7 @@ void SFDLSauger::saveWindowStatus()
     config.beginGroup("window");
     config.setValue("position", this->geometry());
     config.setValue("maximized", this->isMaximized());
+    config.setValue("hidelogs", ui->textEdit->isHidden());
     config.endGroup();
 }
 
@@ -93,6 +94,14 @@ void SFDLSauger::loadWindowStatus()
         QRect thisRect = config.value("position", QRect(QPoint(x,y),QSize(1024,768))).toRect();
         setGeometry(thisRect);
     }
+
+    bool hideLogs = config.value("hidelogs").toBool();
+    if(hideLogs)
+    {
+        ui->textEdit->setHidden(hideLogs);
+        ui->actionLogs_anzeigen->setChecked(0);
+    }
+
     config.endGroup();
 }
 
