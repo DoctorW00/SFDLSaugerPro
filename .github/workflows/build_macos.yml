@@ -71,6 +71,9 @@ jobs:
         run: |
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Generate Self-Signed Code Signing Certificate
+        env:
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          P12_PASS: ${{ secrets.P12_PASSWORD }}
         run: |
           openssl genrsa -out codesign.key 2048
           openssl req -new -key codesign.key -out codesign.csr -subj "/CN=SFDLSaugerPro/O=GrafSauger/C=DE"
@@ -80,7 +83,7 @@ jobs:
           extendedKeyUsage = codeSigning
           EOF
           openssl x509 -req -days 1825 -in codesign.csr -signkey codesign.key -out codesign.crt -extfile codesign.ext
-          openssl pkcs12 -export -out codesign.p12 -inkey codesign.key -in codesign.crt -passout pass:
+          openssl pkcs12 -export -out codesign.p12 -inkey codesign.key -in codesign.crt -passin "pass:$KEY_PASS" -passout "pass:$P12_PASS"
       - name: Import Certificate into Keychain
         run: |
           security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
