@@ -84,18 +84,47 @@ jobs:
           EOF
           openssl x509 -req -days 1825 -in codesign.csr -signkey codesign.key -out codesign.crt -extfile codesign.ext
           openssl pkcs12 -export -out codesign.p12 -inkey codesign.key -in codesign.crt -passin "pass:$KEY_PASS" -passout "pass:$P12_PASS"
+      - name: Debug Secrets Presence
+        run: |
+          if [ -z "${{ secrets.KEYCHAIN_PASSWORD }}" ]; then echo "KEYCHAIN_PASSWORD is not set"; exit 1; fi
+          if [ -z "${{ secrets.P12_PASSWORD }}" ]; then echo "P12_PASSWORD is not set"; exit 1; fi
+          echo "Secrets are set"
+      
       - name: Setup Keychain
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
+          echo "Unlocking login keychain..."
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db || { echo "Failed to unlock login keychain"; exit 1; }
+          echo "Setting keychain settings..."
+          security set-keychain-settings -t 3600 -u ~/Library/Keychains/login.keychain-db || { echo "Failed to set keychain settings"; exit 1; }
+          echo "Listing keychains..."
+          security list-keychains
+          echo "Checking keychain status..."
+          security show-keychain-info ~/Library/Keychains/login.keychain-db || { echo "Login keychain not found or locked"; exit 1; }
+          echo "Login keychain is ready"
+      
+      - name: Verify Certificate and P12
+        env:
+          P12_PASS: ${{ secrets.P12_PASSWORD }}
+        run: |
+          echo "Checking codesign.p12..."
+          openssl pkcs12 -info -in codesign.p12 -passin "pass:$P12_PASS" -nokeys || { echo "Invalid P12 file or password"; exit 1; }
+          echo "Checking codesign.crt..."
+          openssl x509 -in codesign.crt -text -noout || { echo "Invalid certificate"; exit 1; }
+      
       - name: Import Certificate into Keychain
         env:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
         run: |
-          security import codesign.p12 -P "$P12_PASS" -k build.keychain -T /usr/bin/codesign
-          security add-trusted-cert -d -r trustRoot -k build.keychain codesign.crt
-          security find-identity -v -p codesigning build.keychain
+          echo "Starting certificate import..."
+          timeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
+          echo "Certificate imported successfully"
+          echo "Adding trusted cert..."
+          security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt || { echo "Failed to add trusted cert"; exit 1; }
+          echo "Trusted cert added successfully"
+          echo "Listing code signing identities..."
+          security find-identity -v -p codesigning ~/Library/Keychains/login.keychain-db || { echo "Failed to list identities"; exit 1; }
       - name: Use macdeployqt to deploy the app
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
