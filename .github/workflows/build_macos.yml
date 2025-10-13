@@ -84,15 +84,20 @@ jobs:
           EOF
           openssl x509 -req -days 1825 -in codesign.csr -signkey codesign.key -out codesign.crt -extfile codesign.ext
           openssl pkcs12 -export -out codesign.p12 -inkey codesign.key -in codesign.crt -passin "pass:$KEY_PASS" -passout "pass:$P12_PASS"
+      - name: Setup Keychain
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
       - name: Import Certificate into Keychain
         env:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
-          security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign
-          security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt
-          security find-identity -v -p codesigning
+          security import codesign.p12 -P "$P12_PASS" -k build.keychain -T /usr/bin/codesign
+          security add-trusted-cert -d -r trustRoot -k build.keychain codesign.crt
+          security find-identity -v -p codesigning build.keychain
       - name: Use macdeployqt to deploy the app
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
