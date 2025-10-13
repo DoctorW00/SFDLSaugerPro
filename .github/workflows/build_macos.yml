@@ -85,9 +85,12 @@ jobs:
           openssl x509 -req -days 1825 -in codesign.csr -signkey codesign.key -out codesign.crt -extfile codesign.ext
           openssl pkcs12 -export -out codesign.p12 -inkey codesign.key -in codesign.crt -passin "pass:$KEY_PASS" -passout "pass:$P12_PASS"
       - name: Import Certificate into Keychain
+        env:
+          P12_PASS: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
-          security import codesign.p12 -P "" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
+          security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign
           security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt
           security find-identity -v -p codesigning
       - name: Use macdeployqt to deploy the app
