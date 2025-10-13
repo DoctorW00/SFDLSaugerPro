@@ -137,7 +137,7 @@ jobs:
           gtimeout 30 security import codesign.p12 -P "$P12_PASS" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign || { echo "Failed to import codesign.p12"; exit 1; }
           echo "Certificate imported successfully"
           echo "Adding trusted cert..."
-          gtimeout 30 security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt || { echo "Failed to add trusted cert"; exit 1; }
+          security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db codesign.crt 2>&1 || { echo "Failed to add trusted cert, see error above"; exit 1; }
           echo "Trusted cert added successfully"
           echo "Listing code signing identities..."
           security find-identity -v -p codesigning ~/Library/Keychains/login.keychain-db || { echo "Failed to list identities"; exit 1; }
