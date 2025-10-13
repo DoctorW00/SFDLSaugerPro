@@ -88,11 +88,7 @@ jobs:
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          sleep 10
-          security set-keychain-settings -t 3600 -u build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
       - name: Import Certificate into Keychain
         env:
           P12_PASS: ${{ secrets.P12_PASSWORD }}
