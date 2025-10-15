@@ -55,6 +55,12 @@ jobs:
               <true/>
               <key>com.apple.security.files.user-selected.read-write</key>
               <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+              <true/>
+              <key>com.apple.security.cs.disable-executable-page-protection</key>
+              <true/>
           </dict>
           </plist>
           EOF
@@ -102,6 +108,7 @@ jobs:
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.dmg
+          hdiutil verify build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
