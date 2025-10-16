@@ -111,7 +111,7 @@ jobs:
           codesign -dvvv build/SFDLSaugerPro.app
       - name: Create DMG package
         run: |
-          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
+          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -no-volume-info-plist -format UDZO build/SFDLSaugerPro.dmg
           xattr -cr build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
           hdiutil verify build/SFDLSaugerPro.dmg
