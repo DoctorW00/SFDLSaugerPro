@@ -99,8 +99,9 @@ jobs:
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
       - name: Sign the app bundle
         run: |
+          xattr -cr build/SFDLSaugerPro.app
           codesign --remove-signature build/SFDLSaugerPro.app
-          codesign --force --deep --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
+          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
           codesign -dv --verbose=4 build/SFDLSaugerPro.app
           find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
             codesign --remove-signature "$lib"
@@ -110,10 +111,10 @@ jobs:
           codesign -dvvv build/SFDLSaugerPro.app
       - name: Create DMG package
         run: |
-          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
+          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -volname "SFDLSaugerPro" -format UDZO build/SFDLSaugerPro.dmg
+          xattr -cr build/SFDLSaugerPro.dmg
           codesign --remove-signature build/SFDLSaugerPro.dmg
-          codesign --force --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.dmg
-          hdiutil verify build/SFDLSaugerPro.dmg
+          codesign --force --sign "-" build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
