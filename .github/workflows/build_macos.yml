@@ -112,9 +112,8 @@ jobs:
       - name: Create DMG package
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
-          xattr -cr build/SFDLSaugerPro.dmg
-          codesign --remove-signature build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
+          hdiutil verify build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
