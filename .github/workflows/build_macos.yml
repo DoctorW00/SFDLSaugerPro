@@ -103,8 +103,10 @@ jobs:
           codesign --force --deep --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
           codesign -dv --verbose=4 build/SFDLSaugerPro.app
           find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
+            codesign --remove-signature "$lib"
             codesign --force --sign "-" "$lib"
           done
+          echo "Checking signature ..."
           codesign -dvvv build/SFDLSaugerPro.app
       - name: Create DMG package
         run: |
@@ -112,7 +114,6 @@ jobs:
           codesign --remove-signature build/SFDLSaugerPro.dmg
           codesign --force --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.dmg
           hdiutil verify build/SFDLSaugerPro.dmg
-          codesign -dvvv build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
