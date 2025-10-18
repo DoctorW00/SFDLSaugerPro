@@ -100,10 +100,13 @@ jobs:
       - name: Import Signing Certificate
         run: |
           echo "${{ secrets.CERT_P12_BASE64 }}" | base64 --decode > cert.p12
-          security create-keychain -p pw temp.keychain
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" temp.keychain
           security default-keychain -s temp.keychain
-          security unlock-keychain -p pw temp.keychain
-          security import cert.p12 -k temp.keychain -P "${{ secrets.CERT_PASSWORD }}" -T /usr/bin/codesign
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" temp.keychain
+          security import cert.p12 -k temp.keychain -P "${{ secrets.CERT_PASSWORD }}" -T /usr/bin/codesign -A
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" temp.keychain
+          echo "Available codesigning identities:"
+          security find-identity -v -p codesigning temp.keychain
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
