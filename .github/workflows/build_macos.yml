@@ -97,27 +97,15 @@ jobs:
       - name: Use macdeployqt to deploy the app
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
-      - name: Import Signing Certificate
-        run: |
-          echo "${{ secrets.CERT_P12_BASE64 }}" | base64 --decode > cert.p12
-          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" temp.keychain
-          security default-keychain -s temp.keychain
-          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" temp.keychain
-          security import cert.p12 -k temp.keychain -P "${{ secrets.CERT_PASSWORD }}" -T /usr/bin/codesign -A
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" temp.keychain
-          echo "Available codesigning identities:"
-          security find-identity -v -p codesigning temp.keychain
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
           codesign --remove-signature build/SFDLSaugerPro.app
-          # codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
-          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "SFDLSaugerPro" --keychain temp.keychain build/SFDLSaugerPro.app
+          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
           codesign -dv --verbose=4 build/SFDLSaugerPro.app
           find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
             codesign --remove-signature "$lib"
-            # codesign --force --sign "-" "$lib"
-            codesign --force --sign "SFDLSaugerPro" --keychain temp.keychain "$lib"
+            codesign --force --sign "-" "$lib"
           done
           echo "Checking signature ..."
           codesign -dvvv build/SFDLSaugerPro.app
@@ -125,8 +113,7 @@ jobs:
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           xattr -cr build/SFDLSaugerPro.dmg
-          # codesign --force --sign "-" build/SFDLSaugerPro.dmg
-          codesign --force --sign "SFDLSaugerPro" --keychain temp.keychain build/SFDLSaugerPro.dmg
+          codesign --force --sign "-" build/SFDLSaugerPro.dmg
           hdiutil verify build/SFDLSaugerPro.dmg
           codesign -dvvv build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
