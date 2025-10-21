@@ -84,6 +84,8 @@ jobs:
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.grafsauger.sfdlsaugerpro</string>
           </dict>
           </plist>
           EOF
