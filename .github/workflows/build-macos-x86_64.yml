@@ -18,15 +18,21 @@ jobs:
         run: |
           brew update
           brew install qt@5
-          # Auf Intel-Macs liegt Qt normalerweise unter /usr/local/opt/qt@5
-          echo "/usr/local/opt/qt@5/bin" >> $GITHUB_PATH
+          brew link qt@5 --force
+          # Explizit PATH setzen für den gesamten Job
+          echo "/usr/local/opt/qt@5/bin:$PATH" >> $GITHUB_PATH
+          # Zusätzlich für PKG_CONFIG (falls später gebraucht)
+          echo 'export PKG_CONFIG_PATH="/usr/local/opt/qt@5/lib/pkgconfig:$PKG_CONFIG_PATH"' >> $GITHUB_ENV
 
       - name: Debug Qt Installation
         run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
           echo "Qt path:"
-          which qmake || true
+          which qmake || echo "qmake not in PATH yet"
           qmake -query QT_VERSION || true
-          qmake --version
+          qmake --version || echo "qmake version check failed"
+          ls -la /usr/local/opt/qt@5/bin/qmake || true
+          echo "Homebrew info: $(brew info qt@5 | head -3)"
 
       - name: Install Xcode Command Line Tools (falls nötig)
         run: |
@@ -34,9 +40,10 @@ jobs:
 
       - name: Build ftplib (qtftp)
         run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
-          qmake        # jetzt im PATH dank Schritt oben
+          qmake
           make -j$(sysctl -n hw.ncpu)
           sudo make install
 
@@ -68,6 +75,7 @@ jobs:
 
       - name: Build App with qmake + make
         run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
           mkdir build && cd build
           qmake ../SFDLSaugerPro.pro   # oder einfach ../ falls .pro im Root liegt
           make -j$(sysctl -n hw.ncpu)
@@ -103,7 +111,10 @@ jobs:
 
       - name: Run macdeployqt
         run: |
-          qmake -query QT_INSTALL_BINS | xargs -I {} {}/macdeployqt \
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          QT_BIN=$(qmake -query QT_INSTALL_BINS)
+          echo "Using macdeployqt from: $QT_BIN"
+          $QT_BIN/macdeployqt \
             build/SFDLSaugerPro.app \
             -libpath=build/SFDLSaugerPro.app/Contents/Frameworks \
             -verbose=2
