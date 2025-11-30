@@ -80,10 +80,10 @@ jobs:
         run: |
           export PATH="/usr/local/opt/qt@5/bin:$PATH"
           mkdir build && cd build
-          qmake ../SFDLSaugerPro.pro   # oder einfach ../ falls .pro im Root liegt
+          qmake ../SFDLSaugerPro.pro
           make -j$(sysctl -n hw.ncpu)
 
-      - name: Create Info.plist (falls nicht vom .pro generiert)
+      - name: Create Info.plist
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents
           cat > build/SFDLSaugerPro.app/Contents/Info.plist << 'EOF'
