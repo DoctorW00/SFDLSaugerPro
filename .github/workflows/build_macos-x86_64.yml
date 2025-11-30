@@ -26,17 +26,16 @@ jobs:
           target: desktop
           arch: clang_64
           dir: ${{ github.workspace }}/Qt
-          modules: 'qtbase,qttools,qttranslations,qtdeclarative,qtsvg,qtmultimedia'
-          only: true
+          archives: qtdeclarative qtsvg
+          modules: ''
           cache: true
+          set-env: true
 
-      - name: Set Qt Environment
+      - name: Debug Qt Installation
         run: |
-          echo "QT_DIR=$GITHUB_WORKSPACE/Qt/5.15.2/clang_64" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/Qt/5.15.2/clang_64/bin" >> $GITHUB_PATH
-          # Debug: Qt-Version und Arch prüfen
           qmake --version
-          file $(qmake -query QT_INSTALL_BINS)/qmake
+          file $(qmake -query QT_INSTALL_BINS)/qmake  # Sollte x86_64 zeigen
+          echo "Available archives (example): $(python3 -m aqt list-qt mac desktop 5.15.2 clang_64 | head -5)"
 
       - name: Install Xcode Command Line Tools (falls nötig)
         run: xcode-select --install || true
