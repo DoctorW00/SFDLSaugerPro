@@ -18,18 +18,25 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install aqtinstall
-        run: python3 -m pip install "aqtinstall>=3.0"
+      - name: Install Qt 5.15.2 (pure x86_64) via install-qt-action
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 5.15.2
+          host: mac
+          target: desktop
+          arch: clang_64
+          dir: ${{ github.workspace }}/Qt
+          modules: 'qtbase,qttools,qttranslations,qtdeclarative,qtsvg,qtmultimedia'
+          only: true
+          cache: true
 
-      - name: Install Qt 5.15.2 (pure x86_64) via aqtinstall
+      - name: Set Qt Environment
         run: |
-          python3 -m aqt install-qt \
-            --outputdir qt \
-            mac desktop 5.15.2 clang_64 \
-            -a x86_64 \
-            -m qtbase qttools qttranslations qtdeclarative qtsvg qtmultimedia
-          echo "QT_DIR=$GITHUB_WORKSPACE/qt/5.15.2/clang_64" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/qt/5.15.2/clang_64/bin" >> $GITHUB_PATH
+          echo "QT_DIR=$GITHUB_WORKSPACE/Qt/5.15.2/clang_64" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/Qt/5.15.2/clang_64/bin" >> $GITHUB_PATH
+          # Debug: Qt-Version und Arch prüfen
+          qmake --version
+          file $(qmake -query QT_INSTALL_BINS)/qmake
 
       - name: Install Xcode Command Line Tools (falls nötig)
         run: xcode-select --install || true
@@ -51,7 +58,7 @@ jobs:
             CXXFLAGS="-arch x86_64 -mmacosx-version-min=10.15 -std=c++14 -stdlib=libc++" \
             LDFLAGS="-arch x86_64 -mmacosx-version-min=10.15"
           mv libunrar.so libunrar.dylib
-          file libunrar.dylib   # sollte "Mach-O 64-bit x86_64" zeigen
+          file libunrar.dylib   # Debug: Sollte "Mach-O 64-bit x86_64" zeigen
 
       - name: Create entitlements.plist
         run: |
@@ -115,6 +122,7 @@ jobs:
         run: |
           file build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
           lipo -info build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+          # Debug: Sollte nur x86_64 zeigen
 
       - name: Codesign everything (ad-hoc)
         run: |
