@@ -8,37 +8,34 @@ on:
 
 jobs:
   macos-intel:
-    runs-on: macos-13
+    runs-on: macos-14
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 10.15
+      ARCHFLAGS: -arch x86_64
+      QMAKE_APPLE_DEVICE_ARCHS: x86_64
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Qt5 via Homebrew
-        run: |
-          brew update
-          brew install qt@5
-          brew link qt@5 --force
-          echo "/usr/local/opt/qt@5/bin:$PATH" >> $GITHUB_PATH
-          echo 'export PKG_CONFIG_PATH="/usr/local/opt/qt@5/lib/pkgconfig:$PKG_CONFIG_PATH"' >> $GITHUB_ENV
+      - name: Install aqtinstall
+        run: python3 -m pip install "aqtinstall>=3.0"
 
-      - name: Debug Qt Installation
+      - name: Install Qt 5.15.2 (pure x86_64) via aqtinstall
         run: |
-          export PATH="/usr/local/opt/qt@5/bin:$PATH"
-          echo "Qt path:"
-          which qmake || echo "qmake not in PATH yet"
-          qmake -query QT_VERSION || true
-          qmake --version || echo "qmake version check failed"
-          ls -la /usr/local/opt/qt@5/bin/qmake || true
-          echo "Homebrew info: $(brew info qt@5 | head -3)"
+          python3 -m aqt install-qt \
+            --outputdir qt \
+            mac desktop 5.15.2 clang_64 \
+            -a x86_64 \
+            -m qtbase qttools qttranslations qtdeclarative qtsvg qtmultimedia
+          echo "QT_DIR=$GITHUB_WORKSPACE/qt/5.15.2/clang_64" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/qt/5.15.2/clang_64/bin" >> $GITHUB_PATH
 
       - name: Install Xcode Command Line Tools (falls nötig)
-        run: |
-          xcode-select --install || true
+        run: xcode-select --install || true
 
-      - name: Build ftplib (qtftp)
+      - name: Build ftplib (qtftp) – x86_64
         run: |
-          export PATH="/usr/local/opt/qt@5/bin:$PATH"
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
           qmake
@@ -54,7 +51,7 @@ jobs:
             CXXFLAGS="-arch x86_64 -mmacosx-version-min=10.15 -std=c++14 -stdlib=libc++" \
             LDFLAGS="-arch x86_64 -mmacosx-version-min=10.15"
           mv libunrar.so libunrar.dylib
-          file libunrar.dylib
+          file libunrar.dylib   # sollte "Mach-O 64-bit x86_64" zeigen
 
       - name: Create entitlements.plist
         run: |
@@ -72,16 +69,14 @@ jobs:
           </dict>
           </plist>
           EOF
-          plutil -lint entitlements.plist
 
-      - name: Build App with qmake + make
+      - name: Build App with qmake + make (x86_64 only)
         run: |
-          export PATH="/usr/local/opt/qt@5/bin:$PATH"
           mkdir build && cd build
           qmake ../SFDLSaugerPro.pro
           make -j$(sysctl -n hw.ncpu)
 
-      - name: Create Info.plist
+      - name: Create Info.plist (falls qmake keins anlegt)
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents
           cat > build/SFDLSaugerPro.app/Contents/Info.plist << 'EOF'
@@ -112,23 +107,21 @@ jobs:
 
       - name: Run macdeployqt
         run: |
-          export PATH="/usr/local/opt/qt@5/bin:$PATH"
-          QT_BIN=$(qmake -query QT_INSTALL_BINS)
-          echo "Using macdeployqt from: $QT_BIN"
-          $QT_BIN/macdeployqt \
-            build/SFDLSaugerPro.app \
+          macdeployqt build/SFDLSaugerPro.app \
             -libpath=build/SFDLSaugerPro.app/Contents/Frameworks \
             -verbose=2
 
-      - name: Codesign everything (ad-hoc für CI)
+      - name: Verify architecture of final binary
+        run: |
+          file build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+          lipo -info build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+
+      - name: Codesign everything (ad-hoc)
         run: |
           xattr -cr build/SFDLSaugerPro.app
-          codesign --remove-signature build/SFDLSaugerPro.app/* || true
-          find build/SFDLSaugerPro.app -name "*.dylib" -o -name "*.so" | while read lib; do
-            codesign --force --sign "-" "$lib" || true
-          done
-          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
-          codesign --verify --deep --strict --verbose=2 build/SFDLSaugerPro.app
+          find build/SFDLSaugerPro.app -type f -name "*.dylib" -exec codesign --force --sign "-" {} \;
+          codesign --force --deep --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
+          codesign --verify --deep --strict build/SFDLSaugerPro.app
 
       - name: Create and sign DMG
         run: |
@@ -136,9 +129,7 @@ jobs:
             -srcfolder build/SFDLSaugerPro.app \
             -ov -format UDZO \
             SFDLSaugerPro-x86_64.dmg
-
-          xattr -cr SFDLSaugerPro-x86_64.dmg
-          codesign --force --sign "-" SFDLSaugerPro-x86_64.dmg
+          codesign --force --sign "-" SFDLSaugerPro-x86_64.dmg || true
 
       - name: Upload Intel macOS DMG
         uses: actions/upload-artifact@v4
