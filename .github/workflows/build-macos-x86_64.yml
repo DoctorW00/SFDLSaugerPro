@@ -51,9 +51,12 @@ jobs:
         run: |
           cd unrar
           make clean
-          make lib CXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64"
+          make lib \
+            CXX="/usr/bin/clang++" \
+            CXXFLAGS="-arch x86_64 -mmacosx-version-min=10.15 -std=c++14 -stdlib=libc++" \
+            LDFLAGS="-arch x86_64 -mmacosx-version-min=10.15"
           mv libunrar.so libunrar.dylib
-          file libunrar.dylib   # sollte x86_64 anzeigen
+          file libunrar.dylib
 
       - name: Create entitlements.plist
         run: |
