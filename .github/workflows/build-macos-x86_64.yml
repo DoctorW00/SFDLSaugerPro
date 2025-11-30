@@ -8,7 +8,7 @@ on:
 
 jobs:
   macos-intel:
-    runs-on: macos-14
+    runs-on: macos-13
 
     steps:
       - name: Checkout Repository
@@ -19,9 +19,7 @@ jobs:
           brew update
           brew install qt@5
           brew link qt@5 --force
-          # Explizit PATH setzen für den gesamten Job
           echo "/usr/local/opt/qt@5/bin:$PATH" >> $GITHUB_PATH
-          # Zusätzlich für PKG_CONFIG (falls später gebraucht)
           echo 'export PKG_CONFIG_PATH="/usr/local/opt/qt@5/lib/pkgconfig:$PKG_CONFIG_PATH"' >> $GITHUB_ENV
 
       - name: Debug Qt Installation
