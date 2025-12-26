@@ -39,6 +39,7 @@ jobs:
         run: |
           cd unrar
           make clean
+          make lib
           mv libunrar.so libunrar.dylib
           ls -la
       - name: Create entitlements.plist
