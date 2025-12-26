@@ -113,7 +113,7 @@ jobs:
           codesign -dvvv build/SFDLSaugerPro.app
       - name: Verify Architecture
         run: |
-          lipo -info build/SFDLSaugerPro.app
+          lipo -info build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Create DMG package
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
