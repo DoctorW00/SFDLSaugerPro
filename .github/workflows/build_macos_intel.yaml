@@ -33,13 +33,12 @@ jobs:
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
           /opt/homebrew/opt/qt@5/bin/qmake || /usr/local/opt/qt@5/bin/qmake
-          make
+          make -j$(sysctl -n hw.ncpu)
           sudo make install
       - name: Build unrar library
         run: |
           cd unrar
           make clean
-          make lib CXXFLAGS="-arch arm64"
           mv libunrar.so libunrar.dylib
           ls -la
       - name: Create entitlements.plist
@@ -71,7 +70,7 @@ jobs:
           mkdir build
           cd build
           /opt/homebrew/opt/qt@5/bin/qmake ../ || /usr/local/opt/qt@5/bin/qmake ../
-          make
+          make -j$(sysctl -n hw.ncpu)
       - name: Create Info.plist
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents
@@ -98,7 +97,7 @@ jobs:
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
+          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
