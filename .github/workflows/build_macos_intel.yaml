@@ -1,0 +1,128 @@
+name: mac intel - C++ Qt5 Build
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  macos:
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Install Qt5
+        run: |
+          brew update
+          brew install qt@5
+          brew link qt@5 --force
+      - name: Debug Qt5 Installation
+        run: |
+          echo "Checking Qt5 installation..."
+          ls -l /usr/local/opt/qt@5/bin || true
+          ls -l /opt/homebrew/opt/qt@5/bin || true
+          which qmake
+          qmake --version || true
+      - name: Set up Xcode command-line tools
+        run: |
+          sudo xcode-select --switch /Applications/Xcode.app
+          xcode-select --install || true
+      - name: Build ftplib
+        run: |
+          git clone https://github.com/DoctorW00/qtftp.git
+          cd qtftp
+          /opt/homebrew/opt/qt@5/bin/qmake || /usr/local/opt/qt@5/bin/qmake
+          make
+          sudo make install
+      - name: Build unrar library
+        run: |
+          cd unrar
+          make clean
+          make lib CXXFLAGS="-arch arm64"
+          mv libunrar.so libunrar.dylib
+          ls -la
+      - name: Create entitlements.plist
+        run: |
+          cat > entitlements.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.app-sandbox</key>
+              <true/>
+              <key>com.apple.security.files.downloads.read-write</key>
+              <true/>
+              <key>com.apple.security.files.user-selected.read-write</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+              <true/>
+              <key>com.apple.security.cs.disable-executable-page-protection</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          cat entitlements.plist
+          plutil -lint entitlements.plist || { echo "entitlements.plist is invalid"; exit 1; }
+      - name: Build C++ with Qt5
+        run: |
+          mkdir build
+          cd build
+          /opt/homebrew/opt/qt@5/bin/qmake ../ || /usr/local/opt/qt@5/bin/qmake ../
+          make
+      - name: Create Info.plist
+        run: |
+          mkdir -p build/SFDLSaugerPro.app/Contents
+          cat > build/SFDLSaugerPro.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>NSDocumentsFolderUsageDescription</key>
+              <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
+              <key>NSDownloadsFolderUsageDescription</key>
+              <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.grafsauger.sfdlsaugerpro</string>
+          </dict>
+          </plist>
+          EOF
+      - name: Copy unrar lib to SFDLSaugerPro.app
+        run: |
+          mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
+          cp unrar/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.dylib
+      - name: Fix library paths
+        run: |
+          install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+      - name: Use macdeployqt to deploy the app
+        run: |
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
+      - name: Sign the app bundle
+        run: |
+          xattr -cr build/SFDLSaugerPro.app
+          codesign --remove-signature build/SFDLSaugerPro.app
+          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
+          codesign -dv --verbose=4 build/SFDLSaugerPro.app
+          find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
+            codesign --remove-signature "$lib"
+            codesign --force --sign "-" "$lib"
+          done
+          echo "Checking signature ..."
+          codesign -dvvv build/SFDLSaugerPro.app
+      - name: Verify Architecture
+        run: |
+          lipo -info build/SFDLSaugerPro.app
+      - name: Create DMG package
+        run: |
+          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
+          xattr -cr build/SFDLSaugerPro.dmg
+          codesign --force --sign "-" build/SFDLSaugerPro.dmg
+          hdiutil verify build/SFDLSaugerPro.dmg
+          codesign -dvvv build/SFDLSaugerPro.dmg
+      - name: Upload .dmg Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-dmg
+          path: build/SFDLSaugerPro.dmg
