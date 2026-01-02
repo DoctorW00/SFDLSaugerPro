@@ -53,6 +53,7 @@ jobs:
             libglib2.0-dev-bin \
             libglvnd-dev \
             libglx-dev \
+            --fix-broken \
             --allow-downgrades
           wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
           chmod +x linuxdeployqt-continuous-x86_64.AppImage
