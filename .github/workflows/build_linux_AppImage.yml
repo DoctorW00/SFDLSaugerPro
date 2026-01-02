@@ -7,12 +7,14 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -33,11 +35,11 @@ jobs:
             libgl1-mesa-dev \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
-            gstreamer1.0-pulseaudio \
-            gstreamer1.0-alsa \
             gstreamer1.0-plugins-ugly \
             gstreamer1.0-plugins-bad \
             gstreamer1.0-libav \
+            gstreamer1.0-pulseaudio \
+            gstreamer1.0-alsa \
             wget \
             fuse \
             libfuse2 \
@@ -57,6 +59,7 @@ jobs:
             --allow-downgrades
           wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
           chmod +x linuxdeployqt-continuous-x86_64.AppImage
+
       - name: Build ftplib
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
@@ -64,20 +67,32 @@ jobs:
           qmake
           make
           sudo make install
+
       - name: Build unrar library
         run: |
           cd unrar
           make lib
-          ls -la
+
       - name: Build C++ with Qt5
         run: |
           mkdir build
           cd build
           qmake ../
           make
-      - name: Create .desktop file
+
+      - name: Prepare AppDir and build AppImage
         run: |
+          # AppDir Struktur anlegen
+          mkdir -p SFDLSaugerPro.AppDir/usr/bin
+          mkdir -p SFDLSaugerPro.AppDir/usr/lib
           mkdir -p SFDLSaugerPro.AppDir/usr/share/applications
+          mkdir -p SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps
+
+          cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
+          cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
+          cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/libunrar.a
+          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
+
           cat << EOF > SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop
           [Desktop Entry]
           Name=SFDLSaugerPro
@@ -86,41 +101,34 @@ jobs:
           Type=Application
           Categories=Utility;
           EOF
-      - name: Create AppImage
-        run: |
-          mkdir -p SFDLSaugerPro.AppDir/usr/bin
-          mkdir -p SFDLSaugerPro.AppDir/usr/lib
-          mkdir -p SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps
-          cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
-          cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
-          cp unrar/libunrar.a SFDLSaugerPro.AppDir/usr/lib/libunrar.a
-          cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
-          ./linuxdeployqt-continuous-x86_64.AppImage \
-            SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop \
-            -bundle-non-qt-libs \
-            -extra-plugins=multimedia
-      - name: Bundle GStreamer plugins manually
-        run: |
+
           mkdir -p SFDLSaugerPro.AppDir/usr/lib/x86_64-linux-gnu/gstreamer-1.0
           cp -r /usr/lib/x86_64-linux-gnu/gstreamer-1.0/*.so SFDLSaugerPro.AppDir/usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+
           mkdir -p SFDLSaugerPro.AppDir/usr/libexec/gstreamer-1.0
           cp /usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner \
              SFDLSaugerPro.AppDir/usr/libexec/gstreamer-1.0/
-      - name: Patch AppRun for GStreamer
+
+          ./linuxdeployqt-continuous-x86_64.AppImage \
+            SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop \
+            -bundle-non-qt-libs \
+            -extra-plugins=multimedia \
+            -appimage
+
+      - name: Patch AppRun for GStreamer environment variables
         run: |
+          chmod +x SFDLSaugerPro*.AppImage
+          ./SFDLSaugerPro*.AppImage --appimage-extract > /dev/null
           sed -i '/exec "${APPDIR}\/usr\/bin\/SFDLSaugerPro"/i \
           export GST_PLUGIN_SYSTEM_PATH="${APPDIR}/usr/lib/x86_64-linux-gnu/gstreamer-1.0"\n\
           export GST_PLUGIN_SCANNER="${APPDIR}/usr/libexec/gstreamer-1.0/gst-plugin-scanner"\n\
           export GST_REGISTRY_REUSE_PLUGIN_SCANNER=no\n' \
-          SFDLSaugerPro.AppDir/AppRun
-      - name: Final AppImage creation
-        run: |
-          ./linuxdeployqt-continuous-x86_64.AppImage \
-            SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop \
-            -appimage
+          squashfs-root/AppRun
+          ./linuxdeployqt-continuous-x86_64.AppImage squashfs-root/AppRun -appimage
+          rm -rf squashfs-root
+
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro.AppImage
           path: 'SFDLSaugerPro*.AppImage'
-
