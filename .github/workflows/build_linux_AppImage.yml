@@ -35,6 +35,9 @@ jobs:
             gstreamer1.0-plugins-good \
             gstreamer1.0-pulseaudio \
             gstreamer1.0-alsa \
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-libav \
             wget \
             fuse \
             libfuse2 \
@@ -96,6 +99,12 @@ jobs:
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/icon.png
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/SFDLSaugerPro.png
           ./linuxdeployqt-continuous-x86_64.AppImage SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop -bundle-non-qt-libs -extra-plugins=multimedia -appimage
+      - name: Bundle GStreamer plugins
+        run: |
+          mkdir -p SFDLSaugerPro.AppDir/usr/lib/gstreamer-1.0
+          cp -r /usr/lib/x86_64-linux-gnu/gstreamer-1.0/*.so SFDLSaugerPro.AppDir/usr/lib/gstreamer-1.0/
+          cp -P /usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so* SFDLSaugerPro.AppDir/usr/lib/
+          cp -P /usr/lib/x86_64-linux-gnu/libgst*-1.0.so* SFDLSaugerPro.AppDir/usr/lib/
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
