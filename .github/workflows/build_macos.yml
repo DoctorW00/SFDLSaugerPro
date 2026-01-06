@@ -63,6 +63,8 @@ jobs:
               <true/>
               <key>com.apple.security.cs.disable-executable-page-protection</key>
               <true/>
+              <key>com.apple.security.cs.allow-relative-library-loads</key>
+              <true/>
           </dict>
           </plist>
           EOF
@@ -105,6 +107,8 @@ jobs:
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
+              <key>NSDesktopFolderUsageDescription</key>
+              <string>Die App benötigt Zugriff auf den Schreibtisch.</string>
           </dict>
           </plist>
           EOF
