@@ -117,14 +117,15 @@ jobs:
         run: |
           xattr -cr build/SFDLSaugerPro.app
           codesign --remove-signature build/SFDLSaugerPro.app
-          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
-          codesign -dv --verbose=4 build/SFDLSaugerPro.app
-          find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
-            codesign --remove-signature "$lib"
+          find build/SFDLSaugerPro.app/Contents/Frameworks -name "*.dylib" -o -name "*.so" | while read lib; do
             codesign --force --sign "-" "$lib"
           done
-          echo "Checking signature ..."
-          codesign -dvvv build/SFDLSaugerPro.app
+          find build/SFDLSaugerPro.app/Contents/PlugIns -name "*.dylib" | while read plugin; do
+            codesign --force --sign "-" "$plugin"
+          done
+          codesign --force --sign "-" --entitlements entitlements.plist --timestamp=none build/SFDLSaugerPro.app
+          echo "Verifiziere Signatur..."
+          codesign -vvv --deep --strict build/SFDLSaugerPro.app
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
