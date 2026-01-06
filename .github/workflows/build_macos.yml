@@ -1,4 +1,4 @@
-name: C++ Qt5 Build
+name: C++ Qt5 Build Apple Silicon
 on:
   push:
     branches:
@@ -70,22 +70,36 @@ jobs:
         run: |
           mkdir build
           cd build
-          /opt/homebrew/opt/qt@5/bin/qmake ../ || /usr/local/opt/qt@5/bin/qmake ../
-          make
+          /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
+          make -j$(sysctl -n hw.ncpu)
       - name: Create Info.plist
         run: |
-          mkdir -p build/SFDLSaugerPro.app/Contents
-          cat > build/SFDLSaugerPro.app/Contents/Info.plist << EOF
+          APP_BUNDLE="build/SFDLSaugerPro.app"
+          mkdir -p "$APP_BUNDLE/Contents/Resources"
+          if [ -f "icon.icns" ]; then
+            cp icon.icns "$APP_BUNDLE/Contents/Resources/"
+          fi
+          cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+              <key>CFBundleExecutable</key>
+              <string>SFDLSaugerPro</string>
+              <key>CFBundleIconFile</key>
+              <string>icon.icns</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.grafsauger.sfdlsaugerpro</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleSignature</key>
+              <string>????</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
               <key>NSDocumentsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.grafsauger.sfdlsaugerpro</string>
           </dict>
           </plist>
           EOF
@@ -98,7 +112,7 @@ jobs:
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
+          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg -verbose=2
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
@@ -111,13 +125,6 @@ jobs:
           done
           echo "Checking signature ..."
           codesign -dvvv build/SFDLSaugerPro.app
-      - name: Create DMG package
-        run: |
-          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
-          xattr -cr build/SFDLSaugerPro.dmg
-          codesign --force --sign "-" build/SFDLSaugerPro.dmg
-          hdiutil verify build/SFDLSaugerPro.dmg
-          codesign -dvvv build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
