@@ -1,4 +1,4 @@
-name: C++ Qt5 Build Apple Silicon
+name: Apple Silicon
 on:
   push:
     branches:
@@ -32,7 +32,7 @@ jobs:
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
-          /opt/homebrew/opt/qt@5/bin/qmake || /usr/local/opt/qt@5/bin/qmake
+          /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release || /usr/local/opt/qt@5/bin/qmake CONFIG+=release
           make
           sudo make install
       - name: Build unrar library
@@ -112,7 +112,7 @@ jobs:
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Use macdeployqt to deploy the app
         run: |
-          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg -verbose=2
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -dmg -verbose=2
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
