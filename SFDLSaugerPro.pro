@@ -97,6 +97,6 @@ macx {
     QMAKE_ENTITLEMENTS = $$PWD/entitlements.plist
 }
 
-QMAKE_PROJECT_DEPTH = 0
+
 
 
