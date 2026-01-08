@@ -9,7 +9,6 @@
 // #include <QHostAddress>
 
 #include <QtFtp/QFtp>
-// #include <QtCrypto>
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -25,7 +24,6 @@ public:
     QStringList _passwordList;
 
 public slots:
-    // void readSFDL(QString file);
     void readSFDL();
     void setSFDL(QString file, QStringList passwordList);
 

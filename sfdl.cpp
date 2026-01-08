@@ -1,16 +1,11 @@
 #include "sfdl.h"
 
-// QCA::Initializer init;
-
 #include <QDebug>
 
 #include <QCryptographicHash>
 #include <qaesencryption.h>
 
-sfdl::sfdl(QObject *parent) : QObject(parent)
-{
-
-}
+sfdl::sfdl(QObject *parent) : QObject(parent) {}
 
 QByteArray sfdl::loadSFDL(QString file)
 {
@@ -26,37 +21,6 @@ QByteArray sfdl::loadSFDL(QString file)
 
     return QByteArray();
 }
-
-/*
-QString sfdl::decryptString(QString password, QString encodedString)
-{
-    QString decodedString;
-
-    QByteArray data = encodedString.toLatin1();
-    QByteArray iv = QByteArray::fromBase64(data).left(16).toHex();
-    QByteArray pass = password.toLatin1();
-
-    QCA::Hash hash("md5");
-    hash.update(pass);
-    QCA::SecureArray key = hash.final();
-
-    // QCA::Cipher cipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Decode, key, iv);
-    QCA::Cipher cipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::PKCS7, QCA::Decode, key, iv);
-
-    QCA::SecureArray decryptedData = cipher.process(QByteArray::fromBase64(data));
-
-    if(!cipher.ok())
-    {
-        return QString();
-    }
-    else
-    {
-        decodedString = decryptedData.toByteArray().mid(16);
-    }
-
-    return decodedString;
-}
-*/
 
 QString sfdl::decryptString(QString password, QString encodedString)
 {
@@ -120,7 +84,6 @@ void sfdl::setSFDL(QString file, QStringList passwordList)
     _passwordList = passwordList;
 }
 
-// void sfdl::readSFDL(QString file)
 void sfdl::readSFDL()
 {
     QString file = _SFDLFile;
@@ -162,6 +125,14 @@ void sfdl::readSFDL()
     SFDLFileVersion = ListElements(root, "SFDLFileVersion");
     Encrypted = ListElements(root, "Encrypted");
     MaxDownloadThreads = ListElements(root, "MaxDownloadThreads");
+
+    // if there is no description set in the sfdl file
+    // we use the filename for the download naming
+    if(!Description.length())
+    {
+        QFileInfo fileInfo(_SFDLFile);
+        Description = fileInfo.baseName();
+    }
 
     /*
     qDebug() << "Description: " << Description;

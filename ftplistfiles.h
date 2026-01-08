@@ -30,19 +30,18 @@ private:
     QStringList fileList;
     QString baseSFDL;
     QNetworkProxy proxy;
+    QString lastCdPath;
 
 public slots:
     void ftpList(QString ip, int port, QString user, QString pass, QString path,
                             QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data);
-    /* void ftpList(QString ip, int port, QString user, QString pass, QString path, QString SFDL,
-                        QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data); */
 
 private slots:
     void setFTP();
     void ftpTimeout();
     void ftpRawCommandReply(int code, const QString & cmd);
     void ftpCommandStarted(int id);
-    void ftpCommandFinished(int, bool error);
+    void ftpCommandFinished(int commandId, bool error);
     void ftpstateChanged(int state);
     void doListInfo(const QUrlInfo& info);
     void isDone(bool);

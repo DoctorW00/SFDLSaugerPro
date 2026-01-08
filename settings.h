@@ -33,6 +33,7 @@ public:
 
     // config
     QString _downloadPath;
+    bool _flatDownloads = false;
     bool _crc32Check;
     bool _sfvCheck;
     bool _unrar_user_internal = true;

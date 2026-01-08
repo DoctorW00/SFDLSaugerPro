@@ -53,13 +53,22 @@ void Settings::loadSettings()
         QFileInfo path(_downloadPath);
         QStorageInfo storage(_downloadPath);
 
-        if(!storage.isReadOnly() && path.exists() && path.isDir() && path.isWritable())
+        if(!_downloadPath.endsWith("/"))
         {
-            if(!_downloadPath.endsWith("/"))
-            {
-                _downloadPath = _downloadPath + "/";
-            }
+            _downloadPath = _downloadPath + "/";
+        }
 
+        QFile testFile(_downloadPath + ".test_write");
+        bool canWrite = false;
+        if(testFile.open(QIODevice::WriteOnly))
+        {
+            canWrite = true;
+            testFile.close();
+            testFile.remove();
+        }
+
+        if(canWrite)
+        {
             ui->line_openDownloadPath->setText(_downloadPath);
 
             qlonglong bytesAvailable = storage.bytesAvailable()/1000/1000; // free space
@@ -77,6 +86,8 @@ void Settings::loadSettings()
         {
             ui->line_openDownloadPath->setText("");
         }
+
+        ui->chk_flatDownloads->setChecked(config.value("flatDownloads").toBool());
     }
     config.endGroup();
 
@@ -162,6 +173,9 @@ void Settings::saveSettings()
     config.beginGroup("main");
     config.setValue("downloadPath", ui->line_openDownloadPath->text());
     _downloadPath = ui->line_openDownloadPath->text();
+    config.setValue("flatDownloads", ui->chk_flatDownloads->checkState());
+    _flatDownloads = ui->chk_flatDownloads->checkState();
+
     config.endGroup();
 
     config.beginGroup("crc32");
@@ -293,7 +307,7 @@ void Settings::on_button_openDownloadPath_clicked()
     QString home;
     if(_downloadPath.isEmpty())
     {
-        home = QStandardPaths::locate(QStandardPaths::HomeLocation, QString(), QStandardPaths::LocateDirectory);
+        home = QStandardPaths::locate(QStandardPaths::DownloadLocation, QString(), QStandardPaths::LocateDirectory);
     }
     else
     {
@@ -305,10 +319,11 @@ void Settings::on_button_openDownloadPath_clicked()
 
     if(!downloadPath.isEmpty())
     {
-        QFileInfo path(downloadPath);
+        // QFileInfo path(downloadPath);
         QStorageInfo storage(downloadPath);
 
         QStringList errorReasons;
+        /*
         if(storage.isReadOnly())
         {
             errorReasons << tr("Das Verzeichnis ist schreibgeschützt.");
@@ -325,14 +340,29 @@ void Settings::on_button_openDownloadPath_clicked()
         {
             errorReasons << tr("Das Verzeichnis ist nicht beschreibbar.");
         }
+        */
+
+        if(!downloadPath.endsWith("/"))
+        {
+            downloadPath = downloadPath + "/";
+        }
+
+        QFile testFile(downloadPath + ".test_write");
+        bool canWrite = false;
+        if(testFile.open(QIODevice::WriteOnly))
+        {
+            canWrite = true;
+            testFile.close();
+            testFile.remove();
+        }
+
+        if(!canWrite)
+        {
+            errorReasons << tr("Das Verzeichnis ist nicht beschreibbar.");
+        }
 
         if (errorReasons.isEmpty())
         {
-            if (!downloadPath.endsWith("/"))
-            {
-                downloadPath = downloadPath + "/";
-            }
-
             ui->line_openDownloadPath->setText(downloadPath);
 
             qlonglong bytesAvailable = storage.bytesAvailable()/1000/1000; // free space

@@ -7,7 +7,29 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
     setAcceptDrops(true);
     loadWindowStatus();
 
+    // initialize classes
+    logsWindow = new LiveLogs();
+    infoWindow = new About(this);
+    settingsWindow = new Settings(this);
+
+    // irc chat
+    ircChatWindow = new chatIRC();
+    ircChatWindow->setWindowTitle("IRC Chat");
+    ircChatWindow->setObjectName("IRCChat");
+    ircChatWindow->setWindowFlags(ircChatWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+    ircChatWindow->setSizeGripEnabled(true);
+
+    // logs
+    ui->textEdit->installEventFilter(this);
     ui->textEdit->setLineWrapMode(QTextEdit::NoWrap);
+    ui->textEdit->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->textEdit, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showLogMenu(QPoint)));
+    connect(this, &SFDLSauger::logAdded, logsWindow, &LiveLogs::addLogText);
+
+    logsText = new QTextEdit();
+    logsText->setReadOnly(true);
+    logsText->setAcceptDrops(false);
+    logsText->setTextInteractionFlags(Qt::NoTextInteraction);
     addLogText("SFDLSauger Pro v" + QString(APP_VERSION) + tr(" geladen und bereit!"));
 
     // menubar css
@@ -34,10 +56,6 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
     keyDevMode->setKey(Qt::CTRL + Qt::ALT + Qt::Key_D);
     connect(keyDevMode, SIGNAL(activated()), this, SLOT(devModeSwitch()));
 
-    // initialize classes
-    infoWindow = new About(this);
-    settingsWindow = new Settings(this);
-
     // set global settings
     devMode = false;
 }
@@ -45,7 +63,14 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
 SFDLSauger::~SFDLSauger()
 {
     saveWindowStatus();
-
+    if(logsWindow)
+    {
+        delete logsWindow;
+    }
+    if(ircChatWindow)
+    {
+        delete ircChatWindow;
+    }
     delete ui;
 }
 
@@ -121,11 +146,17 @@ void SFDLSauger::devModeSwitch()
 
 void SFDLSauger::addLogText(QString txt)
 {
-    QString datum = QDateTime::currentDateTime().toString("dd-MM-yyyy hh:mm:ss");
+    QString dateNtime = QDateTime::currentDateTime().toString("dd-MM-yyyy hh:mm:ss");
+    QString htmlLine = "<font color=\"grey\">[" + dateNtime + "]</font> " + txt + "<br />";
 
-    ui->textEdit->moveCursor(QTextCursor::End);
-    ui->textEdit->insertHtml("<font color=\"grey\">[" + datum + "]</font> " + txt + "<br />");
+    logsText->moveCursor(QTextCursor::End);
+    logsText->insertHtml(htmlLine);
+
+    ui->textEdit->setHtml(logsText->toHtml());
+    ui->textEdit->setTextCursor(logsText->textCursor());
     ui->textEdit->verticalScrollBar()->setValue(ui->textEdit->verticalScrollBar()->maximum());
+
+    emit logAdded(htmlLine);
 }
 
 // open path in os file explorer
@@ -195,30 +226,36 @@ void SFDLSauger::MsgWarning(QString label, QString text)
 
 QString SFDLSauger::seconds_to_DHMS(int duration)
 {
-    QString res;
-    int seconds = (int) (duration % 60);
+    int seconds = duration % 60;
     duration /= 60;
-    int minutes = (int) (duration % 60);
+    int minutes = duration % 60;
     duration /= 60;
-    int hours = (int) (duration % 24);
-    int days = (int) (duration / 24);
-    if((hours == 0)&&(days == 0)&&(minutes == 0))
+    int hours = duration % 24;
+    int days = duration / 24;
+
+    if (days == 0 && hours == 0 && minutes == 0)
     {
-        return res.sprintf("%02ds", seconds);
+        return QString("%1s").arg(seconds, 2, 10, QChar('0'));
     }
-    else if((hours == 0)&&(days == 0))
+    else if (days == 0 && hours == 0)
     {
-        return res.sprintf("%02dm %02ds", minutes, seconds);
+        return QString("%1m %2s").arg(minutes, 2, 10, QChar('0')).arg(seconds, 2, 10, QChar('0'));
     }
     else if (days == 0)
     {
-        return res.sprintf("%02dh %02dm %02ds", hours, minutes, seconds);
+        return QString("%1h %2m %3s").arg(hours, 2, 10, QChar('0'))
+        .arg(minutes, 2, 10, QChar('0'))
+            .arg(seconds, 2, 10, QChar('0'));
     }
     else
     {
-        return res.sprintf("%ddt %02dh %02dm %02ds", days, hours, minutes, seconds);
+        return QString("%1d %2h %3m %4s").arg(days)
+        .arg(hours, 2, 10, QChar('0'))
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(seconds, 2, 10, QChar('0'));
     }
 }
+
 
 QString SFDLSauger::bytes2Human(float filesize)
 {
@@ -296,7 +333,7 @@ void SFDLSauger::loadSFDL(QString file)
 
 void SFDLSauger::loadSFDLConsol(int instanceId, QByteArray message)
 {
-    instanceId;
+    Q_UNUSED(instanceId);
 
     QString argument = message;
     QStringList arguments = argument.split("|");
@@ -891,7 +928,7 @@ void SFDLSauger::updateTotalDownloadSize(QString id)
 
 void SFDLSauger::tblItemChanged(QTableWidgetItem *item)
 {
-    item;
+    Q_UNUSED(item);
 
     QString id = ui->tabWidget->tabToolTip(ui->tabWidget->currentIndex());
     updateTotalDownloadSize(id);
@@ -1349,7 +1386,14 @@ void SFDLSauger::startDownload(QString tabID = "")
                 QString subPath = returnSubPath(ftpDir, id);
 
                 // make sure paths are working cross platform
-                fullDownloadPath = QDir::toNativeSeparators(QDir::cleanPath(fullDownloadPath + "/" + subPath));
+                if(settingsWindow->_flatDownloads)
+                {
+                    fullDownloadPath = QDir::toNativeSeparators(QDir::cleanPath(fullDownloadPath));
+                }
+                else
+                {
+                    fullDownloadPath = QDir::toNativeSeparators(QDir::cleanPath(fullDownloadPath + "/" + subPath));
+                }
 
                 // create local download path (if needed)
                 QDir dir;
@@ -2264,7 +2308,7 @@ void SFDLSauger::on_action_ber_triggered()
     infoWindow->setWindowTitle(tr("Über ") + QString(APP_PRODUCT));
     infoWindow->setWindowFlags(infoWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint);
     infoWindow->setSizeGripEnabled(false);
-    infoWindow->setFixedSize(QSize(400, 320));
+    infoWindow->setFixedSize(QSize(450, 350));
     if(infoWindow->_mediaPlayer == false)
     {
         infoWindow->playMedia();
@@ -2282,3 +2326,72 @@ void SFDLSauger::on_actionEinstellungen_triggered()
     settingsWindow->setFixedSize(QSize(700, 500));
     settingsWindow->show();
 }
+
+bool SFDLSauger::eventFilter(QObject *obj, QEvent *event)
+{
+    if(obj == ui->textEdit)
+    {
+        if(event->type() == QEvent::MouseButtonDblClick)
+        {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if(mouseEvent->button() == Qt::LeftButton)
+            {
+                QTimer::singleShot(0, this, &SFDLSauger::openLogsDialog);
+                return true;
+            }
+        }
+    }
+
+    return QMainWindow::eventFilter(obj, event);
+}
+
+void SFDLSauger::showLogMenu(const QPoint &pos)
+{
+    if(logsWindow && logsWindow->isVisible())
+    {
+        return;
+    }
+
+    QMenu menu(this);
+    auto *action = menu.addAction(QIcon(":/gfx/log.png"), tr("Logs öffnen"));
+    connect(action, &QAction::triggered, this, &SFDLSauger::openLogsDialog);
+    menu.exec(ui->textEdit->mapToGlobal(pos));
+}
+
+void SFDLSauger::openLogsDialog()
+{
+    if(logsWindow && logsWindow->isVisible())
+    {
+        logsWindow->raise();
+        logsWindow->activateWindow();
+        return;
+    }
+
+    logsWindow->setWindowTitle("Logs");
+    logsWindow->setObjectName("LogsWindow");
+    logsWindow->setWindowFlags(logsWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+    logsWindow->setSizeGripEnabled(true);
+    logsWindow->show();
+}
+
+void SFDLSauger::openIRCDialog()
+{
+    if(ircChatWindow && ircChatWindow->isVisible())
+    {
+        ircChatWindow->raise();
+        ircChatWindow->activateWindow();
+        return;
+    }
+
+    ircChatWindow->setWindowTitle("IRC Chat (" + QString(APP_PRODUCT) + " v" + QString(APP_VERSION) + ")");
+    ircChatWindow->setObjectName("IrcChat");
+    ircChatWindow->setWindowFlags(ircChatWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+    ircChatWindow->setSizeGripEnabled(true);
+    ircChatWindow->show();
+}
+
+void SFDLSauger::on_actionIRC_Chat_triggered()
+{
+    openIRCDialog();
+}
+

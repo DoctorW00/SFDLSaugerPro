@@ -1,9 +1,6 @@
 #include "ftplistfiles.h"
 
-FTPListFiles::FTPListFiles(QObject *parent) : QObject(parent)
-{
-
-}
+FTPListFiles::FTPListFiles(QObject *parent) : QObject(parent) {}
 
 // ftp action
 void FTPListFiles::setFTP()
@@ -49,8 +46,6 @@ void FTPListFiles::ftpTimeout()
 
 void FTPListFiles::ftpstateChanged(int state)
 {
-    state;
-
 #ifdef QT_DEBUG
     qDebug() << "ftpstateChanged: " << state;
 #endif
@@ -58,9 +53,6 @@ void FTPListFiles::ftpstateChanged(int state)
 
 void FTPListFiles::ftpRawCommandReply(int code, const QString & cmd)
 {
-    code;
-    cmd;
-
 #ifdef QT_DEBUG
     qDebug() << "ftpRawCommandReply: " << code << cmd;
 #endif
@@ -68,8 +60,6 @@ void FTPListFiles::ftpRawCommandReply(int code, const QString & cmd)
 
 void FTPListFiles::ftpCommandStarted(int id)
 {
-    id;
-
 #ifdef QT_DEBUG
     if(id == 0)
     {
@@ -115,107 +105,49 @@ void FTPListFiles::ftpCommandStarted(int id)
 #endif
 }
 
-void FTPListFiles::ftpCommandFinished(int, bool error)
+void FTPListFiles::ftpCommandFinished(int commandId, bool error)
 {
-    if(ftp->currentCommand() == QFtp::ConnectToHost)
-    {
-        if(error)
-        {
-            #ifdef QT_DEBUG
-                qDebug() << "ftp ConnectToHost error: " << error;
-            #endif
+    QString commandName;
+    QString extraInfo;
+    QFtp::Command cmd = ftp->currentCommand();
 
-            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Verbindung zum Server fehlgeschalgen!</font>"));
+    switch(cmd)
+    {
+        case QFtp::None:            commandName = "None"; break;
+        case QFtp::SetTransferMode: commandName = "SetTransferMode"; break;
+        case QFtp::SetProxy:        commandName = "SetProxy"; break;
+        case QFtp::ConnectToHost:   commandName = "ConnectToHost"; break;
+        case QFtp::Login:           commandName = "Login"; break;
+        case QFtp::Close:           commandName = "Close"; break;
+        case QFtp::List:            commandName = "List"; break;
+        case QFtp::Cd:
+        {
+            commandName = "Cd";
+            extraInfo = " nach " + lastCdPath;
+            break;
         }
+        case QFtp::Get:             commandName = "Get"; break;
+        case QFtp::Put:             commandName = "Put"; break;
+        case QFtp::Remove:          commandName = "Remove"; break;
+        case QFtp::Mkdir:           commandName = "Mkdir"; break;
+        case QFtp::Rmdir:           commandName = "Rmdir"; break;
+        case QFtp::Rename:          commandName = "Rename"; break;
+        case QFtp::RawCommand:      commandName = "RawCommand"; break;
+        default:                    commandName = "Unbekannter Befehl (" + QString::number(cmd) + ")"; break;
     }
 
-    if(ftp->currentCommand() == QFtp::Login)
+    if(error)
     {
-        if(error)
-        {
-            #ifdef QT_DEBUG
-                qDebug() << "ftp Login error: " << error;
-            #endif
-
-            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Login fehlgeschalgen!</font>"));
-        }
+        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP-Fehler bei %1 (ID %2): %3</font>")
+                             .arg(commandName)
+                             .arg(commandId)
+                             .arg(ftp->errorString()));
     }
-
-    if(ftp->currentCommand() == QFtp::Get)
+    else
     {
-        if(error)
-        {
-            #ifdef QT_DEBUG
-                qDebug() << "ftp Get error: " << error;
-            #endif
-
-            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Datei GET fehlgeschalgen!</font>"));
-        }
-    }
-
-    if(ftp->currentCommand() == QFtp::List)
-    {
-        if(error)
-        {
-            #ifdef QT_DEBUG
-                qDebug() << "ftp List error: " << error;
-            #endif
-
-            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: Datei Listing fehlgeschalgen!</font>"));
-        }
+        emit sendLogText(baseSFDL + tr(": %1 erfolgreich (ID %2)").arg(commandName).arg(commandId));
     }
 }
-
-/*
-QStringList FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path, QString SFDL,
-                                  QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass)
-{
-    // set proxy
-    if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
-    {
-        proxy.setType(QNetworkProxy::Socks5Proxy);
-
-        proxy.setHostName(proxyHost);
-        proxy.setPort(proxyPort.toInt());
-
-        if(!proxyUser.isEmpty() && !proxyPass.isEmpty())
-        {
-            proxy.setUser(proxyUser);
-            proxy.setPassword(proxyPass);
-        }
-
-        QNetworkProxy::setApplicationProxy(proxy);
-    }
-
-    if(user.isEmpty())
-    {
-        user = "anonymous";
-    }
-
-    if(pass.isEmpty())
-    {
-        pass = "anonymous@sfdlsauger.test";
-    }
-
-    if(path.isEmpty())
-    {
-        path = "/";
-    }
-
-    baseIP = ip;
-    basePort = port;
-    baseUser = user;
-    basePass = pass;
-    basePath = path;
-    baseSFDL = SFDL;
-
-    pathList.clear();
-
-    getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
-
-    return fileList;
-}
-*/
 
 void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
                                   QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data)
@@ -259,6 +191,8 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
     basePath = path;
     // baseSFDL = SFDL;
 
+    lastCdPath = path;
+
     pathList.clear();
 
     getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
@@ -290,13 +224,14 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
     ftp->login(user, pass);
     if(!path.isEmpty())
     {
+        lastCdPath = path;
         ftp->cd(path);
     }
 
     ftp->list();
 
-    ftp->close();
     loop->exec();
+    ftp->close();
 
     if(timer->isActive())
     {

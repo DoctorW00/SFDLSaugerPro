@@ -4,6 +4,7 @@ TARGET = SFDLSaugerPro
 TEMPLATE = app
 
 include(SingleApplication/singleapplication.pri)
+include(libcommuni/src/src.pri)
 DEFINES += QAPPLICATION_CLASS=QApplication
 
 SOURCES += \
@@ -17,7 +18,9 @@ SOURCES += \
         crc32.cpp \
         unrar.cpp \
         qaesencryption.cpp \
-        unrarextractor.cpp
+        unrarextractor.cpp \
+        chatirc.cpp \
+        livelogs.cpp
 
 HEADERS += \
         sfdlsauger.h \
@@ -30,12 +33,16 @@ HEADERS += \
         crc32.h \
         unrar.h \
         qaesencryption.h \
-        unrarextractor.h
+        unrarextractor.h \
+        chatirc.h \
+        livelogs.h
 
 FORMS += \
         sfdlsauger.ui \
         about.ui \
-        settings.ui
+        settings.ui \
+        chatirc.ui \
+        livelogs.ui
 
 RESOURCES += \
         gfx.qrc
@@ -65,12 +72,12 @@ win32 {
 # <- unrar end
 
 CONFIG += C++14 crypto
-VERSION = 1.4.4
+VERSION = 1.5.0
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"
 QMAKE_TARGET_DESCRIPTION = "SFDLSauger Pro - SFDL Downloader [4] MLCBoard.com"
-QMAKE_TARGET_COPYRIGHT = "2019 - 2025 by GrafSauger"
+QMAKE_TARGET_COPYRIGHT = "2019 - 2026 by GrafSauger"
 
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 DEFINES += QMAKE_TARGET_COMPANY=\\\"$$QMAKE_TARGET_COMPANY\\\"
@@ -87,8 +94,9 @@ win32 {
 
 macx {
     ICON = icon.icns
-	QMAKE_ENTITLEMENTS = $$PWD/entitlements.plist
+    QMAKE_ENTITLEMENTS = $$PWD/entitlements.plist
 }
 
+QMAKE_PROJECT_DEPTH = 0
 
 

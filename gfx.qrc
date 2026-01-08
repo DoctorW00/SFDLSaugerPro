@@ -23,5 +23,8 @@
         <file>gfx/warning2.png</file>
         <file>gfx/rar.png</file>
         <file>gfx/delete.png</file>
+        <file>gfx/log.png</file>
+        <file>gfx/irc.png</file>
+        <file>gfx/splitter2.png</file>
     </qresource>
 </RCC>

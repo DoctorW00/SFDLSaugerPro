@@ -14,10 +14,7 @@ Crc32::Crc32(QStringList data) : data(data)
     initTable();
 }
 
-Crc32::~Crc32()
-{
-
-}
+Crc32::~Crc32() {}
 
 void Crc32::initTable()
 {

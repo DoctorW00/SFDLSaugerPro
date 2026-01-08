@@ -5,8 +5,18 @@
 #include "data.h"
 #include "ftplistfiles.h"
 #include "ftpdownload.h"
+#include "livelogs.h"
 #include "about.h"
 #include "settings.h"
+#include "chatirc.h"
+
+inline void registerMetaTypes()
+{
+    qRegisterMetaType<IrcServerInfo>();
+    qRegisterMetaType<Socks5ProxyInfo>();
+}
+
+
 #include "crc32.h"
 #include "unrar.h"
 #include "unrarextractor.h"
@@ -15,10 +25,13 @@
 #include <QtWidgets>
 #include <QObject>
 #include <QInputDialog>
-// #include <QHostAddress>
 #include <QRegularExpression>
 #include <QThread>
 #include <QDesktopWidget>
+
+#include <QMenu>
+#include <QAction>
+#include <QMouseEvent>
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -43,6 +56,8 @@ public slots:
 
 private slots:
     void addLogText(QString txt);
+    void showLogMenu(const QPoint &pos);
+    void openLogsDialog();
     int addTab(QString tabText);
     void chkSFDLData(QStringList data, QStringList files);
     void getSFDLData(QStringList data, QStringList files);
@@ -73,6 +88,8 @@ private slots:
     void loadWindowStatus();
     QString returnSubPath(QString fullPath, QString splitter);
     QString removeDuplicateSlashes(QString path);
+    void openIRCDialog();
+    void on_actionIRC_Chat_triggered();
 
     // ftp downloads
     void startDownloadButton();
@@ -100,8 +117,16 @@ private slots:
     // ftp clients
     void openInFileZilla();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
+signals:
+    void logAdded(const QString& htmlLine);
+    void doubleClicked();
+
 private:
     Ui::SFDLSauger *ui;
+    QTextEdit *logsText;
     QList<SFDL> sfdlData;
     int maxTabTextLength = 32;
     QFont defaultFont;
@@ -109,8 +134,10 @@ private:
     bool devMode = false;
     QSystemTrayIcon *icon;
     int g_sessionID = 0;
+    LiveLogs *logsWindow;
     About *infoWindow;
     Settings *settingsWindow;
+    chatIRC *ircChatWindow;
     qint64 g_lastProgressUpdate;
 
     // ftp downloads
