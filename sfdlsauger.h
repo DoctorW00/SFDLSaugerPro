@@ -12,10 +12,9 @@
 
 inline void registerMetaTypes()
 {
-    qRegisterMetaType<IrcServerInfo>();
-    qRegisterMetaType<Socks5ProxyInfo>();
+    qRegisterMetaType<gsIrcServerInfo>();
+    qRegisterMetaType<gsSocks5ProxyInfo>();
 }
-
 
 #include "crc32.h"
 #include "unrar.h"
