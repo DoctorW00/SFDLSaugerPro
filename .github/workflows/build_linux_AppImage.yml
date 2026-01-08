@@ -1,4 +1,4 @@
-name: Build Qt5 Linux AppImage
+name: Build Linux AppImage Qt5 C++
 
 on:
   push:
@@ -14,7 +14,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -27,7 +26,6 @@ jobs:
             wget fuse libfuse2 squashfs-tools libarchive-dev cmake git llvm \
             gzip findutils libgcc-9-dev libgles-dev libglib2.0-dev \
             libglib2.0-dev-bin libglvnd-dev libglx-dev --allow-downgrades
-
       - name: Download AppImage Tools
         run: |
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
@@ -35,7 +33,6 @@ jobs:
           wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage linuxdeploy-plugin-gstreamer.sh
           sudo mv linuxdeploy-plugin-gstreamer.sh /usr/local/bin/linuxdeploy-plugin-gstreamer
-
       - name: Build ftplib
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
@@ -43,28 +40,22 @@ jobs:
           qmake
           make
           sudo make install
-
       - name: Build unrar library
         run: |
           cd unrar
           make lib
-
       - name: Build C++ with Qt5
         run: |
           mkdir build
           cd build
           qmake ../
           make
-
       - name: Create .desktop file and AppDir Structure
         run: |
-          # AppDir Struktur erstellen
           mkdir -p SFDLSaugerPro.AppDir/usr/bin
           mkdir -p SFDLSaugerPro.AppDir/usr/lib
           mkdir -p SFDLSaugerPro.AppDir/usr/share/applications
           mkdir -p SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps
-
-          # Desktop Datei erzeugen
           cat << EOF > SFDLSaugerPro.AppDir/usr/share/applications/SFDLSaugerPro.desktop
           [Desktop Entry]
           Name=SFDLSaugerPro
@@ -73,24 +64,20 @@ jobs:
           Type=Application
           Categories=Utility;
           EOF
-
           cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
-
       - name: Create AppImage
         env:
           QMAKE: /usr/lib/qt5/bin/qmake
           EXTRA_QT_PLUGINS: multimedia
         run: |
-          # Erstellung via linuxdeploy
           ./linuxdeploy-x86_64.AppImage \
             --appdir SFDLSaugerPro.AppDir \
             --executable SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro \
             --plugin qt \
             --plugin gstreamer \
             --output appimage
-
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
