@@ -76,17 +76,17 @@ chatIRC::~chatIRC()
     delete ui;
 }
 
-const QVector<IrcServerInfo>& chatIRC::predefinedServers()
+const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
 {
-    static const QVector<IrcServerInfo> servers{
+    static const QVector<gsIrcServerInfo> servers{
         { "MLC IRC (SSL)",   "irc.mlc.to", 6697, true,  "MLC_User", "MLC_Lover", "MLC_Liebhaber", "", "#mlcboard" }
     };
     return servers;
 }
 
-const QVector<Socks5ProxyInfo>& chatIRC::predefinedProxies()
+const QVector<gsSocks5ProxyInfo>& chatIRC::predefinedProxies()
 {
-    static const QVector<Socks5ProxyInfo> proxies{
+    static const QVector<gsSocks5ProxyInfo> proxies{
         { "Direct",                "",             0, "", "" },
         { "Tor (localhost 9050)",  "127.0.0.1", 9050, "", "" },
         { "Tor (localhost 9150)",  "127.0.0.1", 9150, "", "" }
@@ -119,8 +119,8 @@ void chatIRC::setupServerComboBox()
         ui->selectIRCServer->addItem(srv.displayName, QVariant::fromValue(srv));
     }
 
-    QVector<IrcServerInfo> custom;
-    QVector<Socks5ProxyInfo> dummy;
+    QVector<gsIrcServerInfo> custom;
+    QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
     for(const auto& srv : custom)
     {
@@ -133,16 +133,16 @@ void chatIRC::setupServerComboBox()
 
 void chatIRC::setupProxyComboBox()
 {
-    Socks5ProxyInfo currentProxy;
+    gsSocks5ProxyInfo currentProxy;
     int currentIdx = ui->selectIRCProxy->currentIndex();
     if (currentIdx >= 0) {
-        currentProxy = ui->selectIRCProxy->itemData(currentIdx).value<Socks5ProxyInfo>();
+        currentProxy = ui->selectIRCProxy->itemData(currentIdx).value<gsSocks5ProxyInfo>();
     }
 
     ui->selectIRCProxy->blockSignals(true);
     ui->selectIRCProxy->clear();
 
-    Socks5ProxyInfo direct;
+    gsSocks5ProxyInfo direct;
     direct.displayName = tr("Direct (kein Proxy)");
     direct.host.clear();
     direct.port = 0;
@@ -153,8 +153,8 @@ void chatIRC::setupProxyComboBox()
         ui->selectIRCProxy->addItem(p.displayName + " (vordefiniert)", QVariant::fromValue(p));
     }
 
-    QVector<IrcServerInfo> dummyServers;
-    QVector<Socks5ProxyInfo> customProxies;
+    QVector<gsIrcServerInfo> dummyServers;
+    QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
     for(const auto& p : customProxies)
     {
@@ -163,7 +163,7 @@ void chatIRC::setupProxyComboBox()
 
     int newIndex = 0;  // Default: Direct
     for (int i = 0; i < ui->selectIRCProxy->count(); ++i) {
-        Socks5ProxyInfo p = ui->selectIRCProxy->itemData(i).value<Socks5ProxyInfo>();
+        gsSocks5ProxyInfo p = ui->selectIRCProxy->itemData(i).value<gsSocks5ProxyInfo>();
         if (p.displayName == currentProxy.displayName &&
             p.host == currentProxy.host &&
             p.port == currentProxy.port &&
@@ -187,7 +187,7 @@ void chatIRC::on_selectIRCServer_currentIndexChanged(int index)
 
     updateNickUserRealFromCurrentServer();
 
-    IrcServerInfo srv = ui->selectIRCServer->itemData(index).value<IrcServerInfo>();
+    gsIrcServerInfo srv = ui->selectIRCServer->itemData(index).value<gsIrcServerInfo>();
 
     ircServer_DisplayName = srv.displayName;
     ircServer_Host        = srv.hostname;
@@ -216,7 +216,7 @@ void chatIRC::on_selectIRCProxy_currentIndexChanged(int index)
 {
     if(index < 0) return;
 
-    Socks5ProxyInfo proxy = ui->selectIRCProxy->itemData(index).value<Socks5ProxyInfo>();
+    gsSocks5ProxyInfo proxy = ui->selectIRCProxy->itemData(index).value<gsSocks5ProxyInfo>();
 
     ircServer_ProxyName = proxy.displayName;
     ircServer_ProxyHost = proxy.host;
@@ -241,7 +241,7 @@ void chatIRC::on_selectIRCProxy_currentIndexChanged(int index)
     */
 }
 
-void chatIRC::saveCustomServers(const QVector<IrcServerInfo>& servers, const QVector<Socks5ProxyInfo>& proxies)
+void chatIRC::saveCustomServers(const QVector<gsIrcServerInfo>& servers, const QVector<gsSocks5ProxyInfo>& proxies)
 {
     QSettings settings(QSettings::IniFormat, QSettings::UserScope, "SFDLSaugerPro", "irc_data");
 
@@ -280,7 +280,7 @@ void chatIRC::saveCustomServers(const QVector<IrcServerInfo>& servers, const QVe
     settings.sync();
 }
 
-void chatIRC::loadCustomServers(QVector<IrcServerInfo>& servers, QVector<Socks5ProxyInfo>& proxies)
+void chatIRC::loadCustomServers(QVector<gsIrcServerInfo>& servers, QVector<gsSocks5ProxyInfo>& proxies)
 {
     servers.clear();
     proxies.clear();
@@ -291,7 +291,7 @@ void chatIRC::loadCustomServers(QVector<IrcServerInfo>& servers, QVector<Socks5P
     for(int i = 0; i < serverSize; ++i)
     {
         settings.setArrayIndex(i);
-        IrcServerInfo s;
+        gsIrcServerInfo s;
         s.displayName    = settings.value("displayName").toString();
         s.hostname       = settings.value("hostname").toString();
         s.port           = settings.value("port", 6667).toInt();
@@ -313,7 +313,7 @@ void chatIRC::loadCustomServers(QVector<IrcServerInfo>& servers, QVector<Socks5P
     for(int i = 0; i < proxySize; ++i)
     {
         settings.setArrayIndex(i);
-        Socks5ProxyInfo p;
+        gsSocks5ProxyInfo p;
         p.displayName = settings.value("displayName").toString();
         p.host        = settings.value("host").toString();
         p.port        = settings.value("port", 1080).toInt();
@@ -328,24 +328,24 @@ void chatIRC::loadCustomServers(QVector<IrcServerInfo>& servers, QVector<Socks5P
     settings.endArray();
 }
 
-QVector<IrcServerInfo> chatIRC::getAllServers()
+QVector<gsIrcServerInfo> chatIRC::getAllServers()
 {
-    QVector<IrcServerInfo> all = predefinedServers();
+    QVector<gsIrcServerInfo> all = predefinedServers();
 
-    QVector<IrcServerInfo> custom;
-    QVector<Socks5ProxyInfo> dummy;
+    QVector<gsIrcServerInfo> custom;
+    QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
 
     all.append(custom);
     return all;
 }
 
-QVector<Socks5ProxyInfo> chatIRC::getAllProxies()
+QVector<gsSocks5ProxyInfo> chatIRC::getAllProxies()
 {
-    QVector<Socks5ProxyInfo> all = predefinedProxies();
+    QVector<gsSocks5ProxyInfo> all = predefinedProxies();
 
-    QVector<IrcServerInfo> dummy;
-    QVector<Socks5ProxyInfo> custom;
+    QVector<gsIrcServerInfo> dummy;
+    QVector<gsSocks5ProxyInfo> custom;
     loadCustomServers(dummy, custom);
 
     all.append(custom);
@@ -883,7 +883,8 @@ void chatIRC::refreshServerCombo()
     {
         comboServers->addItem(s.displayName + " (vordefiniert)", QVariant::fromValue(s));
     }
-    QVector<IrcServerInfo> custom; QVector<Socks5ProxyInfo> dummy;
+    QVector<gsIrcServerInfo> custom;
+    QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
     for(const auto& s : custom)
     {
@@ -898,7 +899,8 @@ void chatIRC::refreshProxyCombo()
     {
         comboProxies->addItem(p.displayName + " (vordefiniert)", QVariant::fromValue(p));
     }
-    QVector<IrcServerInfo> dummy; QVector<Socks5ProxyInfo> custom;
+    QVector<gsIrcServerInfo> dummy;
+    QVector<gsSocks5ProxyInfo> custom;
     loadCustomServers(dummy, custom);
     for(const auto& p : custom)
     {
@@ -910,7 +912,7 @@ void chatIRC::loadCurrentServerIntoFields()
 {
     int idx = comboServers->currentIndex();
     if (idx < 0) return;
-    IrcServerInfo srv = comboServers->itemData(idx).value<IrcServerInfo>();
+    gsIrcServerInfo srv = comboServers->itemData(idx).value<gsIrcServerInfo>();
 
     bool isPredefined = (idx < predefinedServers().size());
     btnUpdateServer->setEnabled(!isPredefined);
@@ -931,7 +933,7 @@ void chatIRC::loadCurrentProxyIntoFields()
 {
     int idx = comboProxies->currentIndex();
     if (idx < 0) return;
-    Socks5ProxyInfo p = comboProxies->itemData(idx).value<Socks5ProxyInfo>();
+    gsSocks5ProxyInfo p = comboProxies->itemData(idx).value<gsSocks5ProxyInfo>();
 
     bool isPredefined = (idx < predefinedProxies().size());
     btnUpdateProxy->setEnabled(!isPredefined);
@@ -946,7 +948,7 @@ void chatIRC::loadCurrentProxyIntoFields()
 
 void chatIRC::on_btnAddServer_clicked()
 {
-    IrcServerInfo srv;
+    gsIrcServerInfo srv;
     srv.displayName     = editDisplayName->text().trimmed();
     srv.hostname        = editHostname->text().trimmed();
     srv.port            = spinPort->value();
@@ -962,7 +964,8 @@ void chatIRC::on_btnAddServer_clicked()
         return;
     }
 
-    QVector<IrcServerInfo> custom; QVector<Socks5ProxyInfo> dummy;
+    QVector<gsIrcServerInfo> custom;
+    QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
     custom.append(srv);
     saveCustomServers(custom, dummy);
@@ -977,7 +980,7 @@ void chatIRC::on_btnUpdateServer_clicked()
     int idx = comboServers->currentIndex();
     if (idx < predefinedServers().size()) return;
 
-    IrcServerInfo srv = comboServers->itemData(idx).value<IrcServerInfo>();
+    gsIrcServerInfo srv = comboServers->itemData(idx).value<gsIrcServerInfo>();
     srv.displayName     = editDisplayName->text().trimmed();
     srv.hostname        = editHostname->text().trimmed();
     srv.port            = spinPort->value();
@@ -994,7 +997,8 @@ void chatIRC::on_btnUpdateServer_clicked()
         return;
     }
 
-    QVector<IrcServerInfo> custom; QVector<Socks5ProxyInfo> dummy;
+    QVector<gsIrcServerInfo> custom;
+    QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
     int customIdx = idx - predefinedServers().size();
     custom[customIdx] = srv;
@@ -1015,7 +1019,8 @@ void chatIRC::on_btnDeleteServer_clicked()
         return;
     }
 
-    QVector<IrcServerInfo> custom; QVector<Socks5ProxyInfo> dummy;
+    QVector<gsIrcServerInfo> custom;
+    QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
     custom.removeAt(idx - predefinedServers().size());
     saveCustomServers(custom, dummy);
@@ -1026,7 +1031,7 @@ void chatIRC::on_btnDeleteServer_clicked()
 
 void chatIRC::on_btnAddProxy_clicked()
 {
-    Socks5ProxyInfo proxy;
+    gsSocks5ProxyInfo proxy;
     proxy.displayName = editProxyDisplayName->text().trimmed();
     proxy.host        = editProxyHost->text().trimmed();
     proxy.port        = spinProxyPort->value();
@@ -1045,8 +1050,8 @@ void chatIRC::on_btnAddProxy_clicked()
         return;
     }
 
-    QVector<IrcServerInfo> dummyServers;
-    QVector<Socks5ProxyInfo> customProxies;
+    QVector<gsIrcServerInfo> dummyServers;
+    QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
 
     for(const auto& p : customProxies)
@@ -1073,7 +1078,7 @@ void chatIRC::on_btnUpdateProxy_clicked()
     if (idx < 0) return;
     if (idx < predefinedProxies().size()) return;
 
-    Socks5ProxyInfo proxy = comboProxies->itemData(idx).value<Socks5ProxyInfo>();
+    gsSocks5ProxyInfo proxy = comboProxies->itemData(idx).value<gsSocks5ProxyInfo>();
 
     proxy.displayName = editProxyDisplayName->text().trimmed();
     proxy.host        = editProxyHost->text().trimmed();
@@ -1093,8 +1098,8 @@ void chatIRC::on_btnUpdateProxy_clicked()
         return;
     }
 
-    QVector<IrcServerInfo> dummyServers;
-    QVector<Socks5ProxyInfo> customProxies;
+    QVector<gsIrcServerInfo> dummyServers;
+    QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
 
     int customIdx = idx - predefinedProxies().size();
@@ -1120,8 +1125,8 @@ void chatIRC::on_btnDeleteProxy_clicked()
         return;
     }
 
-    QVector<IrcServerInfo> dummyServers;
-    QVector<Socks5ProxyInfo> customProxies;
+    QVector<gsIrcServerInfo> dummyServers;
+    QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
 
     customProxies.removeAt(idx - predefinedProxies().size());
@@ -1136,7 +1141,7 @@ void chatIRC::updateNickUserRealFromCurrentServer()
     int idx = ui->selectIRCServer->currentIndex();
     if(idx < 0) return;
 
-    IrcServerInfo server = ui->selectIRCServer->itemData(idx).value<IrcServerInfo>();
+    gsIrcServerInfo server = ui->selectIRCServer->itemData(idx).value<gsIrcServerInfo>();
 
     ui->lineNickName->setText(server.nick);
     ui->lineUserName->setText(server.user);
@@ -1155,7 +1160,6 @@ void chatIRC::appendDebugMessage(const QString& text)
         ui->chatBrowser->append(html);
     }
 }
-
 
 QString IrcMessageFormatter::formatMessage(IrcMessage* message)
 {

@@ -47,6 +47,8 @@ FORMS += \
 RESOURCES += \
         gfx.qrc
 
+QMAKE_CXXFLAGS -= -Werror
+
 # unrar start ->
 SOURCES += $$files($$PWD/unrar/*.cpp)
 HEADERS += $$files($$PWD/unrar/*.hpp)
@@ -64,6 +66,7 @@ unix {
     SOURCES -= $$files($$PWD/unrar/motw.cpp)
     DEFINES += _UNIX _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64
     QMAKE_CXXFLAGS += -Wno-zero-as-null-pointer-constant
+    QMAKE_CXXFLAGS += -Wno-dangling-else
 }
 win32 {
     SOURCES -= $$files($$PWD/unrar/posix.cpp)

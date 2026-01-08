@@ -4,7 +4,7 @@
 #pragma once
 #include <QMetaType>
 
-struct IrcServerInfo
+struct gsIrcServerInfo
 {
     QString displayName;
     QString hostname;
@@ -15,7 +15,7 @@ struct IrcServerInfo
     QString real = "RealName";
     QString password = "";
     QString defaultChannel = "";
-    bool operator==(const IrcServerInfo& other) const
+    bool operator==(const gsIrcServerInfo& other) const
     {
         return displayName == other.displayName &&
                hostname    == other.hostname &&
@@ -23,9 +23,9 @@ struct IrcServerInfo
                ssl         == other.ssl;
     }
 };
-Q_DECLARE_METATYPE(IrcServerInfo)
+Q_DECLARE_METATYPE(gsIrcServerInfo)
 
-struct Socks5ProxyInfo
+struct gsSocks5ProxyInfo
 {
     QString  displayName;
     QString  host;
@@ -33,7 +33,7 @@ struct Socks5ProxyInfo
     QString  user;
     QString  password;
 
-    bool operator==(const Socks5ProxyInfo& other) const
+    bool operator==(const gsSocks5ProxyInfo& other) const
     {
         return displayName == other.displayName &&
                host        == other.host &&
@@ -41,9 +41,9 @@ struct Socks5ProxyInfo
                user        == other.user &&
                password    == other.password;
     }
-    bool operator!=(const Socks5ProxyInfo& other) const { return !(*this == other); }
+    bool operator!=(const gsSocks5ProxyInfo& other) const { return !(*this == other); }
 };
-Q_DECLARE_METATYPE(Socks5ProxyInfo)
+Q_DECLARE_METATYPE(gsSocks5ProxyInfo)
 
 #include <QDialog>
 
@@ -98,10 +98,10 @@ class chatIRC : public QDialog
 public:
     explicit chatIRC(QWidget *parent = nullptr);
     ~chatIRC();
-    static void saveCustomServers(const QVector<IrcServerInfo>& servers, const QVector<Socks5ProxyInfo>& proxies);
-    static void loadCustomServers(QVector<IrcServerInfo>& servers,QVector<Socks5ProxyInfo>& proxies);
-    static QVector<IrcServerInfo> getAllServers();
-    static QVector<Socks5ProxyInfo> getAllProxies();
+    static void saveCustomServers(const QVector<gsIrcServerInfo>& servers, const QVector<gsSocks5ProxyInfo>& proxies);
+    static void loadCustomServers(QVector<gsIrcServerInfo>& servers,QVector<gsSocks5ProxyInfo>& proxies);
+    static QVector<gsIrcServerInfo> getAllServers();
+    static QVector<gsSocks5ProxyInfo> getAllProxies();
 
 private slots:
     void loadIRCLayout();
@@ -135,8 +135,8 @@ private slots:
     void appendDebugMessage(const QString& text);
 
 private:
-    static const QVector<IrcServerInfo>& predefinedServers();
-    static const QVector<Socks5ProxyInfo>& predefinedProxies();
+    static const QVector<gsIrcServerInfo>& predefinedServers();
+    static const QVector<gsSocks5ProxyInfo>& predefinedProxies();
 
     Ui::chatIRC *ui;
     IrcCompleter *completer;
@@ -176,7 +176,7 @@ private:
     QLineEdit *editProxyDisplayName, *editProxyHost, *editProxyUser, *editProxyPassword;
     QSpinBox  *spinProxyPort;
     QPushButton *btnAddServer, *btnUpdateServer, *btnDeleteServer;
-    QPushButton *btnAddProxy,  *btnUpdateProxy,  *btnDeleteProxy;
+    QPushButton *btnAddProxy, *btnUpdateProxy, *btnDeleteProxy;
 
     void createSetupDialog();
     void refreshServerCombo();
