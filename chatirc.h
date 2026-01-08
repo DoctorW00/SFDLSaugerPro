@@ -4,6 +4,7 @@
 #pragma once
 #include <QMetaType>
 
+/*
 struct gsIrcServerInfo
 {
     QString displayName;
@@ -32,6 +33,64 @@ struct gsSocks5ProxyInfo
     quint16  port;
     QString  user;
     QString  password;
+
+    bool operator==(const gsSocks5ProxyInfo& other) const
+    {
+        return displayName == other.displayName &&
+               host        == other.host &&
+               port        == other.port &&
+               user        == other.user &&
+               password    == other.password;
+    }
+    bool operator!=(const gsSocks5ProxyInfo& other) const { return !(*this == other); }
+};
+Q_DECLARE_METATYPE(gsSocks5ProxyInfo)
+*/
+
+struct gsIrcServerInfo
+{
+    QString displayName;
+    QString hostname;
+    int port;
+    bool ssl;
+    QString nick;
+    QString user;
+    QString real;
+    QString password;
+    QString defaultChannel;
+
+    gsIrcServerInfo() = default;
+
+    gsIrcServerInfo(const QString& dn, const QString& hn, int p, bool s,
+                  const QString& n = "Nick", const QString& u = "User",
+                  const QString& r = "RealName", const QString& pass = "",
+                  const QString& chan = "")
+        : displayName(dn), hostname(hn), port(p), ssl(s),
+        nick(n), user(u), real(r), password(pass), defaultChannel(chan) {}
+
+    bool operator==(const gsIrcServerInfo& other) const
+    {
+        return displayName == other.displayName &&
+               hostname    == other.hostname &&
+               port        == other.port &&
+               ssl         == other.ssl;
+    }
+};
+Q_DECLARE_METATYPE(gsIrcServerInfo)
+
+struct gsSocks5ProxyInfo
+{
+    QString displayName;
+    QString host;
+    quint16 port;
+    QString user;
+    QString password;
+
+    gsSocks5ProxyInfo() = default;
+
+    gsSocks5ProxyInfo(const QString& dn, const QString& h, quint16 p,
+                    const QString& u = "", const QString& pass = "")
+        : displayName(dn), host(h), port(p), user(u), password(pass) {}
 
     bool operator==(const gsSocks5ProxyInfo& other) const
     {

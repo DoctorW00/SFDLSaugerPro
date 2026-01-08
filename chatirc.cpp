@@ -76,6 +76,7 @@ chatIRC::~chatIRC()
     delete ui;
 }
 
+/*
 const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
 {
     static const QVector<gsIrcServerInfo> servers{
@@ -89,6 +90,24 @@ const QVector<gsSocks5ProxyInfo>& chatIRC::predefinedProxies()
     static const QVector<gsSocks5ProxyInfo> proxies{
         { "Tor (localhost 9050)", "127.0.0.1", 9050, "", "" },
         { "Tor (localhost 9150)", "127.0.0.1", 9150, "", "" }
+    };
+    return proxies;
+}
+*/
+
+const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
+{
+    static const QVector<gsIrcServerInfo> servers{
+        gsIrcServerInfo("MLC IRC (SSL)", "irc.mlc.to", 6697, true, "MLC_User", "MLC_Lover", "MLC_Liebhaber", "", "#mlcboard")
+    };
+    return servers;
+}
+
+const QVector<gsSocks5ProxyInfo>& chatIRC::predefinedProxies()
+{
+    static const QVector<gsSocks5ProxyInfo> proxies{
+        gsSocks5ProxyInfo("Tor (localhost 9050)", "127.0.0.1", 9050, "", ""),
+        gsSocks5ProxyInfo("Tor (localhost 9150)", "127.0.0.1", 9150, "", "")
     };
     return proxies;
 }
@@ -134,7 +153,8 @@ void chatIRC::setupProxyComboBox()
 {
     gsSocks5ProxyInfo currentProxy;
     int currentIdx = ui->selectIRCProxy->currentIndex();
-    if (currentIdx >= 0) {
+    if(currentIdx >= 0)
+    {
         currentProxy = ui->selectIRCProxy->itemData(currentIdx).value<gsSocks5ProxyInfo>();
     }
 
