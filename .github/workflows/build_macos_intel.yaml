@@ -50,16 +50,20 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>com.apple.security.app-sandbox</key>
+              <false/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
               <true/>
               <key>com.apple.security.files.downloads.read-write</key>
               <true/>
               <key>com.apple.security.files.user-selected.read-write</key>
               <true/>
-              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-              <true/>
-              <key>com.apple.security.cs.allow-dyld-environment-variables</key>
-              <true/>
               <key>com.apple.security.cs.disable-executable-page-protection</key>
+              <true/>
+              <key>com.apple.security.cs.allow-relative-library-loads</key>
               <true/>
           </dict>
           </plist>
@@ -70,22 +74,41 @@ jobs:
         run: |
           mkdir build
           cd build
-          /opt/homebrew/opt/qt@5/bin/qmake ../ || /usr/local/opt/qt@5/bin/qmake ../
+          /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
+      - name: Use macdeployqt to deploy the app
+        run: |
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 || /usr/local/opt/qt@5/bin/macdeployqt -verbose=2 
       - name: Create Info.plist
         run: |
-          mkdir -p build/SFDLSaugerPro.app/Contents
-          cat > build/SFDLSaugerPro.app/Contents/Info.plist << EOF
+          APP_BUNDLE="build/SFDLSaugerPro.app"
+          mkdir -p "$APP_BUNDLE/Contents/Resources"
+          if [ -f "icon.icns" ]; then
+            cp icon.icns "$APP_BUNDLE/Contents/Resources/"
+          fi
+          cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+              <key>CFBundleExecutable</key>
+              <string>SFDLSaugerPro</string>
+              <key>CFBundleIconFile</key>
+              <string>icon.icns</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.grafsauger.sfdlsaugerpro</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleSignature</key>
+              <string>????</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
               <key>NSDocumentsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.grafsauger.sfdlsaugerpro</string>
+              <key>NSDesktopFolderUsageDescription</key>
+              <string>Die App benötigt Zugriff auf den Schreibtisch.</string>
           </dict>
           </plist>
           EOF
@@ -93,34 +116,24 @@ jobs:
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
           cp unrar/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.dylib
-      - name: Fix library paths
-        run: |
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
-      - name: Use macdeployqt to deploy the app
-        run: |
-          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -libpath=build/SFDLSaugerPro.app/Contents/Frameworks/ -verbose=2
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
-          codesign --remove-signature build/SFDLSaugerPro.app
-          codesign --force --deep --timestamp --entitlements entitlements.plist --sign "-" build/SFDLSaugerPro.app
-          codesign -dv --verbose=4 build/SFDLSaugerPro.app
-          find build/SFDLSaugerPro.app/Contents -name "*.dylib" -o -name "*.so" | while read lib; do
-            codesign --remove-signature "$lib"
-            codesign --force --sign "-" "$lib"
-          done
-          echo "Checking signature ..."
-          codesign -dvvv build/SFDLSaugerPro.app
+          find build/SFDLSaugerPro.app/Contents/Frameworks -name "*.framework" -exec codesign --force --sign "-" --timestamp=none {} \;
+          find build/SFDLSaugerPro.app/Contents/Frameworks -name "*.dylib" -exec codesign --force --sign "-" --timestamp=none {} \;
+          if [ -d "build/SFDLSaugerPro.app/Contents/PlugIns" ]; then
+            find build/SFDLSaugerPro.app/Contents/PlugIns -name "*.dylib" -exec codesign --force --sign "-" --timestamp=none {} \;
+          fi
+          codesign --force --sign "-" --entitlements entitlements.plist --timestamp=none build/SFDLSaugerPro.app
+          codesign -vvv --deep --strict build/SFDLSaugerPro.app
       - name: Verify Architecture
         run: |
           lipo -info build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Create DMG package
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
-          xattr -cr build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
-          hdiutil verify build/SFDLSaugerPro.dmg
-          codesign -dvvv build/SFDLSaugerPro.dmg
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
