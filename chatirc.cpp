@@ -79,7 +79,7 @@ chatIRC::~chatIRC()
 const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
 {
     static const QVector<gsIrcServerInfo> servers{
-        { "MLC IRC (SSL)",   "irc.mlc.to", 6697, true,  "MLC_User", "MLC_Lover", "MLC_Liebhaber", "", "#mlcboard" }
+        { "MLC IRC (SSL)", "irc.mlc.to", 6697, true, "MLC_User", "MLC_Lover", "MLC_Liebhaber", "", "#mlcboard" }
     };
     return servers;
 }
@@ -87,9 +87,8 @@ const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
 const QVector<gsSocks5ProxyInfo>& chatIRC::predefinedProxies()
 {
     static const QVector<gsSocks5ProxyInfo> proxies{
-        { "Direct",                "",             0, "", "" },
-        { "Tor (localhost 9050)",  "127.0.0.1", 9050, "", "" },
-        { "Tor (localhost 9150)",  "127.0.0.1", 9150, "", "" }
+        { "Tor (localhost 9050)", "127.0.0.1", 9050, "", "" },
+        { "Tor (localhost 9150)", "127.0.0.1", 9150, "", "" }
     };
     return proxies;
 }

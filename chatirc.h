@@ -29,7 +29,7 @@ struct gsSocks5ProxyInfo
 {
     QString  displayName;
     QString  host;
-    quint16  port = 0;
+    quint16  port;
     QString  user;
     QString  password;
 
