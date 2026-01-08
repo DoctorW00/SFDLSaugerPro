@@ -32,7 +32,7 @@ jobs:
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
-          /opt/homebrew/opt/qt@5/bin/qmake || /usr/local/opt/qt@5/bin/qmake
+          /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release || /usr/local/opt/qt@5/bin/qmake CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
           sudo make install
       - name: Build unrar library
@@ -78,7 +78,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 || /usr/local/opt/qt@5/bin/macdeployqt -verbose=2 
+          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
       - name: Create Info.plist
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
