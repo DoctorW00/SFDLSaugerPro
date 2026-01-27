@@ -32,6 +32,8 @@ inline void registerMetaTypes()
 #include <QAction>
 #include <QMouseEvent>
 
+#include "FileOrganizer.h"
+
 #ifdef QT_DEBUG
     #include <QDebug>
 #endif
@@ -115,6 +117,8 @@ private slots:
 
     // ftp clients
     void openInFileZilla();
+
+    void on_actionStrukturreformator_triggered();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;

@@ -23,6 +23,7 @@ SOURCES += \
         livelogs.cpp
 
 HEADERS += \
+        FileOrganizer.h \
         sfdlsauger.h \
         sfdl.h \
         ftplistfiles.h \
@@ -75,7 +76,7 @@ win32 {
 # <- unrar end
 
 CONFIG += C++14 crypto
-VERSION = 1.5.0
+VERSION = 1.5.1
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"

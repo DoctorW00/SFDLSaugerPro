@@ -80,7 +80,10 @@ void Settings::loadSettings()
             ui->bar_openDownloadPath->setMaximum(bytesTotal);
             ui->bar_openDownloadPath->setMinimum(0);
             ui->bar_openDownloadPath->setValue(progress);
-            ui->bar_openDownloadPath->setFormat(storage.displayName() + " (" + storage.fileSystemType() + ") " + bytes2Human(storage.bytesAvailable()) + tr(" von ") + bytes2Human(storage.bytesTotal()) + tr(" verfügbar"));
+            #ifdef Q_OS_MAC
+            ui->bar_openDownloadPath->setStyle(QStyleFactory::create("Fusion"));
+            #endif
+            ui->bar_openDownloadPath->setFormat(storage.displayName() + " (" + storage.fileSystemType() + ") " + bytes2Human(storage.bytesAvailable()) + tr(" von ") + bytes2Human(storage.bytesTotal()) + tr(" verfügbar"));    
         }
         else
         {

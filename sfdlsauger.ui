@@ -52,7 +52,7 @@
 }</string>
       </property>
       <property name="orientation">
-       <enum>Qt::Vertical</enum>
+       <enum>Qt::Orientation::Vertical</enum>
       </property>
       <property name="handleWidth">
        <number>5</number>
@@ -103,7 +103,7 @@
         <bool>false</bool>
        </property>
        <property name="contextMenuPolicy">
-        <enum>Qt::CustomContextMenu</enum>
+        <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
        </property>
        <property name="acceptDrops">
         <bool>false</bool>
@@ -113,10 +113,10 @@
 background: #e4e4e4;</string>
        </property>
        <property name="frameShape">
-        <enum>QFrame::Box</enum>
+        <enum>QFrame::Shape::Box</enum>
        </property>
        <property name="frameShadow">
-        <enum>QFrame::Raised</enum>
+        <enum>QFrame::Shadow::Raised</enum>
        </property>
        <property name="lineWidth">
         <number>0</number>
@@ -147,7 +147,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="textInteractionFlags">
-        <set>Qt::NoTextInteraction</set>
+        <set>Qt::TextInteractionFlag::NoTextInteraction</set>
        </property>
        <property name="placeholderText">
         <string notr="true"/>
@@ -287,7 +287,7 @@ QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
 </string>
        </property>
        <property name="tabPosition">
-        <enum>QTabWidget::North</enum>
+        <enum>QTabWidget::TabPosition::North</enum>
        </property>
        <property name="currentIndex">
         <number>-1</number>
@@ -299,7 +299,7 @@ QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
         </size>
        </property>
        <property name="elideMode">
-        <enum>Qt::ElideNone</enum>
+        <enum>Qt::TextElideMode::ElideNone</enum>
        </property>
        <property name="tabsClosable">
         <bool>true</bool>
@@ -321,7 +321,7 @@ QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
      <x>0</x>
      <y>0</y>
      <width>950</width>
-     <height>23</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuDatei">
@@ -351,6 +351,7 @@ QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
      <string>Tools</string>
     </property>
     <addaction name="actionIRC_Chat"/>
+    <addaction name="actionStrukturreformator"/>
    </widget>
    <addaction name="menuDatei"/>
    <addaction name="menuOptionen"/>
@@ -413,6 +414,15 @@ QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
    </property>
    <property name="text">
     <string>IRC Chat</string>
+   </property>
+  </action>
+  <action name="actionStrukturreformator">
+   <property name="icon">
+    <iconset resource="gfx.qrc">
+     <normaloff>:/gfx/reformator.png</normaloff>:/gfx/reformator.png</iconset>
+   </property>
+   <property name="text">
+    <string>Strukturreformator</string>
    </property>
   </action>
  </widget>

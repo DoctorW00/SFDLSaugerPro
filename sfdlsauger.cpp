@@ -256,7 +256,6 @@ QString SFDLSauger::seconds_to_DHMS(int duration)
     }
 }
 
-
 QString SFDLSauger::bytes2Human(float filesize)
 {
     float num = filesize;
@@ -348,7 +347,6 @@ void SFDLSauger::loadSFDLConsol(int instanceId, QByteArray message)
             loadSFDL(s);
         }
     }
-
 }
 
 void SFDLSauger::chkSFDLData(QStringList data, QStringList files)
@@ -699,6 +697,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
 
         QString dlFileNameWithSub = files.at(i).split("|").at(0);
         dlFileNameWithSub = removeDuplicateSlashes(returnSubPath(dlFileNameWithSub, tabName));
+        if(dlFileNameWithSub.isEmpty()) { dlFileNameWithSub = f3; } // fallback
         QTableWidgetItem *FILE = new QTableWidgetItem(dlFileNameWithSub);
         FILE->setFont(filelFont);
         file_tbl->setItem(i, 2, FILE);
@@ -1304,13 +1303,13 @@ QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
 
     int index = parts.indexOf(splitter);
 
-    if (index == -1)
+    if(index == -1)
     {
         return QString();
     }
 
     QStringList subparts = parts.mid(index + 1);
-    if (subparts.isEmpty())
+    if(subparts.isEmpty())
     {
         return QString();
     }
@@ -2393,5 +2392,42 @@ void SFDLSauger::openIRCDialog()
 void SFDLSauger::on_actionIRC_Chat_triggered()
 {
     openIRCDialog();
+}
+
+void SFDLSauger::on_actionStrukturreformator_triggered()
+{
+    QString home = QStandardPaths::locate(QStandardPaths::DownloadLocation, QString(), QStandardPaths::LocateDirectory);
+
+    // get data from active tab
+    QWidget *activeWidget = ui->tabWidget->currentWidget();
+    if(activeWidget)
+    {
+        QString id = activeWidget->objectName();
+        QString currentDir = settingsWindow->_downloadPath + "/" + id;
+        if(QDir(currentDir).exists())
+        {
+            home = currentDir;
+        }
+    }
+
+    QString reformatorPath = QFileDialog::getExistingDirectory(this, tr("Welcher Pfad soll restrukturiert werden?"), home, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if(!reformatorPath.isEmpty())
+    {
+        QString release = QDir(reformatorPath).dirName();
+
+        addLogText(tr(": Starte Strukturreformator: Release: " ) + release + tr(", Pfad: ") + reformatorPath);
+
+        FileOrganizer organizer(reformatorPath, release);
+
+        if(organizer.reorganizeFiles())
+        {
+            addLogText(tr(": Alles erfolgreich neu sortiert!"));
+        }
+        else
+        {
+            addLogText("<font color=\"red\">" + tr(": Fehler beim Neuordnen der Dateien!</font>"));
+        }
+    }
 }
 

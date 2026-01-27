@@ -26,5 +26,6 @@
         <file>gfx/log.png</file>
         <file>gfx/irc.png</file>
         <file>gfx/splitter2.png</file>
+        <file>gfx/reformator.png</file>
     </qresource>
 </RCC>
