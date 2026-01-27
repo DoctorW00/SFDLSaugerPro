@@ -1,6 +1,8 @@
 #include "settings.h"
 #include "ui_settings.h"
-
+#ifdef Q_OS_MAC
+#include <QStyleFactory>
+#endif
 #include <QDebug>
 
 Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
