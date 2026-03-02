@@ -1,9 +1,7 @@
 #ifndef FTPLISTFILES_H
 #define FTPLISTFILES_H
 
-#include <QTimer>
-#include <QEventLoop>
-#include <QtFtp/QFtp>
+#include "ftpclient.h"
 #include <QNetworkProxy>
 
 #ifdef QT_DEBUG
@@ -18,9 +16,8 @@ public:
     explicit FTPListFiles(QObject *parent = nullptr);
 
 private:
-    QFtp *ftp;
-    QTimer *timer;
-    QEventLoop *loop;
+    FtpClient *ftp = nullptr;
+    bool connected = false;
     QString baseIP;
     int basePort;
     QString baseUser;
@@ -31,20 +28,16 @@ private:
     QString baseSFDL;
     QNetworkProxy proxy;
     QString lastCdPath;
+    QString proxyHostValue;
+    QString proxyPortValue;
+    QString proxyUserValue;
+    QString proxyPassValue;
 
 public slots:
     void ftpList(QString ip, int port, QString user, QString pass, QString path,
                             QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data);
 
 private slots:
-    void setFTP();
-    void ftpTimeout();
-    void ftpRawCommandReply(int code, const QString & cmd);
-    void ftpCommandStarted(int id);
-    void ftpCommandFinished(int commandId, bool error);
-    void ftpstateChanged(int state);
-    void doListInfo(const QUrlInfo& info);
-    void isDone(bool);
     void getFTPIndex(QString ip, int port, QString user, QString pass, QString path);
 
 signals:

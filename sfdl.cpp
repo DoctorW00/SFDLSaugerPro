@@ -25,7 +25,7 @@ QByteArray sfdl::loadSFDL(QString file)
 QString sfdl::decryptString(QString password, QString encodedString)
 {
     QByteArray data = QByteArray::fromBase64(encodedString.toLatin1());
-    QString iv = encodedString.section("", 0, 16);
+    QString iv = encodedString.left(16);
 
     QAESEncryption encryption(QAESEncryption::AES_128, QAESEncryption::CBC, QAESEncryption::PADDING::PKCS7);
 
@@ -33,7 +33,18 @@ QString sfdl::decryptString(QString password, QString encodedString)
     QByteArray hashIV = QCryptographicHash::hash(iv.toLocal8Bit(), QCryptographicHash::Md5);
 
     QByteArray decodeText = encryption.decode(data, hashKey, hashIV);
-    QString decodedString = QString(encryption.removePadding(decodeText).mid(16));
+    if (decodeText.isEmpty())
+    {
+        return "__fail__to__decrypt__";
+    }
+
+    QByteArray unpadded = encryption.removePadding(decodeText);
+    if (unpadded.isEmpty())
+    {
+        return "__fail__to__decrypt__";
+    }
+
+    QString decodedString = QString(unpadded.mid(16));
 
     return decodedString;
 }
@@ -249,7 +260,7 @@ void sfdl::readSFDL()
         {
             QString passTest = decryptString(passwords.at(i), n_data.at(7).split("|").at(1));
 
-            if(passTest != "__fail__to__decrypt__" && !passTest.isEmpty() && validateIPv4(passTest))
+            if(passTest != "__fail__to__decrypt__" && !passTest.trimmed().isEmpty())
             {
                 sfdlPassword = passwords.at(i);
                 ipTextOK = true;
@@ -266,6 +277,12 @@ void sfdl::readSFDL()
 
         sendLogText(file + tr(": Erfogreich mit Passwort <b>") + sfdlPassword + tr("</b> entschlüsselt."));
 
+        auto looksEncrypted = [](const QString& value) {
+            if (value.isEmpty())
+                return false;
+            return value.contains('=') || value.size() > 24;
+        };
+
         for(int i = 0; i < n_data.count(); i++)
         {
             QString dataInfo = n_data.at(i).split("|").at(0);
@@ -278,7 +295,18 @@ void sfdl::readSFDL()
                     dataInfo == "Description" ||
                     dataInfo == "DefaultPath")
             {
-                QString dec = decryptString(sfdlPassword, n_data.at(i).split("|").at(1));
+                const QString rawValue = n_data.at(i).split("|").at(1);
+                if (!looksEncrypted(rawValue))
+                {
+                    continue;
+                }
+
+                QString dec = decryptString(sfdlPassword, rawValue);
+                if(dec == "__fail__to__decrypt__")
+                {
+                    sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort)</font>"));
+                    return;
+                }
 
                 if(n_data.at(i).split("|").at(0) == "Host")
                 {
@@ -405,7 +433,16 @@ void sfdl::readSFDL()
 
                                         if(n_data.at(4).split("|").at(1) == "true")
                                         {
-                                            BulkFolderPath = decryptString(sfdlPassword, BulkFolderPath);
+                                            if (BulkFolderPath.contains('=') || BulkFolderPath.size() > 24)
+                                            {
+                                                QString decPath = decryptString(sfdlPassword, BulkFolderPath);
+                                                if (decPath == "__fail__to__decrypt__")
+                                                {
+                                                    sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort)</font>"));
+                                                    return;
+                                                }
+                                                BulkFolderPath = decPath;
+                                            }
                                         }
 
                                         n_data.append("BulkFolderPath|" + BulkFolderPath);

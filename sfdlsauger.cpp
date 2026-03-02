@@ -1,5 +1,7 @@
 #include "sfdlsauger.h"
 #include "ui_sfdlsauger.h"
+#include <QPointer>
+#include <QRegularExpression>
 
 SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSauger)
 {
@@ -32,8 +34,31 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
     logsText->setTextInteractionFlags(Qt::NoTextInteraction);
     addLogText("SFDLSauger Pro v" + QString(APP_VERSION) + tr(" geladen und bereit!"));
 
-    // menubar css
-    ui->menuBar->setStyleSheet("QMenuBar { background: #a2a2a2 url(:/gfx/menubg.png) repeat-x; color: #f1f1f1; } QMenuBar::item:selected { color: black; }");
+    defaultFont = QFont(QStringLiteral("Segoe UI"), 12);
+
+    // Komplett neues Design: Dunkles Theme
+    qApp->setStyleSheet(
+        "QMainWindow, QWidget { background-color: #0d1117; } "
+        "QMenuBar { background-color: #161b22; color: #c9d1d9; padding: 6px; border-bottom: 1px solid #21262d; } "
+        "QMenuBar::item { padding: 8px 14px; border-radius: 6px; } "
+        "QMenuBar::item:selected { background-color: #21262d; color: #58a6ff; } "
+        "QMenuBar::item:pressed { background-color: #30363d; } "
+        "QMenu { background-color: #161b22; color: #c9d1d9; } "
+        "QMenu::item:selected { background-color: #21262d; color: #58a6ff; } "
+        "QTableWidget { background-color: #0d1117; gridline-color: #21262d; color: #c9d1d9; font-size: 12px; } "
+        "QTableWidget::item { padding: 8px 12px; color: #c9d1d9; } "
+        "QTableWidget::item:selected { background-color: #388bfd; color: white; } "
+        "QHeaderView::section { background-color: #161b22; color: #8b949e; padding: 12px; border: none; border-bottom: 2px solid #21262d; font-weight: 600; } "
+        "QToolBar { background-color: #161b22; border-bottom: 1px solid #21262d; padding: 10px; } "
+        "QToolButton { background: transparent; color: #c9d1d9; border-radius: 6px; padding: 10px 14px; font-size: 12px; } "
+        "QToolButton:hover { background-color: #21262d; color: #58a6ff; } "
+        "QToolButton:pressed { background-color: #30363d; } "
+        "QSpinBox { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; } "
+        "QProgressBar { background-color: #21262d; border: 1px solid #30363d; border-radius: 8px; font-weight: 600; text-align: center; } "
+        "QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #238636, stop:1 #2ea043); border-radius: 7px; } "
+        "QLabel { color: #c9d1d9; } "
+        "QSplitter::handle { background-color: #21262d; } "
+        "QSplitter::handle:hover { background-color: #58a6ff; }");
 
     if(QSystemTrayIcon::isSystemTrayAvailable())
     {
@@ -53,7 +78,7 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
 
     // set shortcuts
     QShortcut *keyDevMode = new QShortcut(this);
-    keyDevMode->setKey(Qt::CTRL + Qt::ALT + Qt::Key_D);
+    keyDevMode->setKey(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_D));
     connect(keyDevMode, SIGNAL(activated()), this, SLOT(devModeSwitch()));
 
     // set global settings
@@ -88,15 +113,20 @@ void SFDLSauger::loadWindowStatus()
 {
     QSettings config(QSettings::IniFormat, QSettings::UserScope, "SFDLSaugerPro", "config");
 
-    QDesktopWidget *desktop = QApplication::desktop();
+    QScreen *screen = QApplication::primaryScreen();
 
-    int screenWidth, width;
-    int screenHeight, height;
+    int screenWidth = 0;
+    int screenHeight = 0;
+    int width = 0;
+    int height = 0;
     int x, y;
     QSize windowSize;
 
-    screenWidth = desktop->width();
-    screenHeight = desktop->height();
+    if (screen)
+    {
+        screenWidth = screen->geometry().width();
+        screenHeight = screen->geometry().height();
+    }
 
     windowSize = size();
     width = windowSize.width();
@@ -456,7 +486,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     status_tbl->setHorizontalHeaderLabels(statusList);
 
     // add sessionid
-    QFont statusFONT(defaultFont.defaultFamily(), 10, QFont::Normal);
+    QFont statusFONT(defaultFont.defaultFamily(), 11, QFont::Normal);
 
     // ID
     QTableWidgetItem *SESSIONID = new QTableWidgetItem(QString::number(g_sessionID));
@@ -563,16 +593,18 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     data_tbl->setEditTriggers(QAbstractItemView::NoEditTriggers);
     data_tbl->setSelectionMode(QAbstractItemView::SingleSelection);
     data_tbl->setSelectionBehavior(QAbstractItemView::SelectRows);
-    data_tbl->setShowGrid(false);
+    data_tbl->setShowGrid(true);
     data_tbl->horizontalHeader()->hide();
     data_tbl->verticalHeader()->hide();
-    data_tbl->setAlternatingRowColors(true);
-    data_tbl->setColumnWidth(21, 45);
+    data_tbl->setAlternatingRowColors(false);
+    data_tbl->setStyleSheet(
+        "QTableWidget { background: #0d1117; gridline-color: #21262d; } "
+        "QTableWidget::item { padding: 8px 12px; color: #c9d1d9; } ");
 
     // set data_tbl data
     for(int i = 0; i < dataRowCount; i++)
     {
-        QFont labelFont(defaultFont.defaultFamily(), 10, QFont::Bold);
+        QFont labelFont(defaultFont.defaultFamily(), 11, QFont::Bold);
         QString dataInfo = data.at(i).split("|").at(0);
 
         QTableWidgetItem *LABEL = new QTableWidgetItem(dataInfo);
@@ -580,13 +612,15 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         LABEL->setFont(labelFont);
         data_tbl->setItem(i, 0, LABEL);
 
-        QFont dataFont(defaultFont.defaultFamily(), 10, QFont::Normal);
+        QFont dataFont(defaultFont.defaultFamily(), 11, QFont::Normal);
 
         QString dataContent;
         dataContent = data.at(i).split("|").at(1);
 
         QTableWidgetItem *DATA = new QTableWidgetItem(dataContent);
         DATA->setFont(dataFont);
+        DATA->setForeground(QColor("#c9d1d9"));
+        DATA->setToolTip(dataContent);
         data_tbl->setItem(i, 1, DATA);
     }
 
@@ -634,6 +668,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     headerList.push_back(tr("SFV"));                  // sfv check icon
     headerList.push_back(tr("RESUME"));               // resume download
     file_tbl->setHorizontalHeaderLabels(headerList);
+    file_tbl->verticalHeader()->setDefaultSectionSize(28);
 
     connect(file_tbl, SIGNAL(cellDoubleClicked(int,int)), this, SLOT(fileTableDoubleClicked(int,int)));
 
@@ -668,7 +703,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
             }
         }
 
-        QFont filelFont(defaultFont.defaultFamily(), 10, QFont::Normal);
+        QFont filelFont(defaultFont.defaultFamily(), 11, QFont::Normal);
 
         QTableWidgetItem *CHKBOX = new QTableWidgetItem();
         if(exludeFile)
@@ -702,7 +737,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         FILE->setFont(filelFont);
         file_tbl->setItem(i, 2, FILE);
 
-        QFont sizeFont(defaultFont.defaultFamily(), 10, QFont::Normal);
+        QFont sizeFont(defaultFont.defaultFamily(), 11, QFont::Normal);
 
         totalDownloadSize += files.at(i).split("|").at(1).toLongLong();
 
@@ -719,13 +754,20 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         PROGBAR->setMaximum(100);
         PROGBAR->setValue(0);
         PROGBAR->setTextVisible(1);
-        PROGBAR->setStyleSheet("QProgressBar { border: 1px solid #420000; margin: 1px; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #c52222; width: 1px; margin: 0px; }");
+        PROGBAR->setAlignment(Qt::AlignCenter);
+        PROGBAR->setStyleSheet(
+            "QProgressBar { background: #21262d; border: 1px solid #30363d; margin: 1px 4px; border-radius: 4px; min-height: 20px; font-weight: 600; font-size: 10px; text-align: center; } "
+            "QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #238636, stop:1 #2ea043); border-radius: 3px; }");
 
         PROGBAR->setObjectName("pbarIn_" + QString::number(i));
+        PROGBAR->setFixedWidth(80);
+        PROGBAR->setFixedHeight(22);
+        PROGBAR->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         file_tbl->setCellWidget(i, 5, PROGBAR);
 
         QTableWidgetItem *STATUSMSG = new QTableWidgetItem(tr("Ready!"));
         STATUSMSG->setFont(filelFont);
+        STATUSMSG->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         file_tbl->setItem(i, 6, STATUSMSG);
 
         QTableWidgetItem *STATUS = new QTableWidgetItem("0");
@@ -754,7 +796,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         file_tbl->setItem(i, 12, LAST_READ);
 
         QTableWidgetItem *FILE_CRC32 = new QTableWidgetItem("");
-        QFont crc32lFont("Monospace", 10, QFont::Normal);
+        QFont crc32lFont("Consolas", 11, QFont::Normal);
         crc32lFont.setStyleHint(QFont::TypeWriter);
         FILE_CRC32->setFont(crc32lFont);
         FILE_CRC32->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -784,22 +826,26 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     status_tbl->setItem(0, 7, DLSIZEHUMAN);
 
     // add total download size to data table
-    QFont labelFont2(defaultFont.defaultFamily(), 10, QFont::Bold);
+    QFont labelFont2(defaultFont.defaultFamily(), 11, QFont::Bold);
     QTableWidgetItem *downloadSIZE1 = new QTableWidgetItem("TotalDownloadSize");
     downloadSIZE1->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
     downloadSIZE1->setFont(labelFont2);
     data_tbl->setItem(data_tbl->rowCount() -1, 0, downloadSIZE1);
 
-    QFont dataFont2(defaultFont.defaultFamily(), 10, QFont::Normal);
+    QFont dataFont2(defaultFont.defaultFamily(), 11, QFont::Normal);
     QTableWidgetItem *downloadSIZE2 = new QTableWidgetItem(QString::number(totalDownloadSize) + " [" + bytes2Human(totalDownloadSize) + "]");
     downloadSIZE2->setFont(dataFont2);
     data_tbl->setItem(data_tbl->rowCount() -1, 1, downloadSIZE2);
 
     file_tbl->setShowGrid(0);
     file_tbl->setAlternatingRowColors(1);
-    file_tbl->setColumnWidth(0, 10);
+    file_tbl->setColumnWidth(0, 36);   // Checkbox
+    file_tbl->setColumnWidth(4, 80);   // Größe
+    file_tbl->setColumnWidth(5, 88);   // Fortschrittsbalken (kompakt)
+    file_tbl->setColumnWidth(6, 160);  // Status (z.B. "Download abgebrochen", "Download läuft...")
+    file_tbl->setColumnWidth(10, 95);  // Geschwindigkeit (verhindert "bytes/s"-Umbruch)
     file_tbl->setColumnWidth(11, 55);
-    file_tbl->setColumnWidth(14, 16); // sfv check icon table
+    file_tbl->setColumnWidth(14, 16);  // sfv check icon table
     file_tbl->resizeColumnToContents(2);
     file_tbl->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
 
@@ -936,17 +982,21 @@ void SFDLSauger::tblItemChanged(QTableWidgetItem *item)
 void SFDLSauger::changeCHKBOX(QString id, bool lock)
 {
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
+    if (!widget1) return;
     QTableWidget *widget3 = widget1->findChild<QTableWidget *>("files");
+    if (!widget3) return;
 
     for(int i = 0; i < widget3->rowCount(); i++)
     {
+        QTableWidgetItem *item = widget3->item(i, 0);
+        if (!item) continue;
         if(lock)
         {
-            widget3->item(i, 0)->setFlags(widget3->item(i, 0)->flags() & ~Qt::ItemIsUserCheckable);
+            item->setFlags(item->flags() & ~Qt::ItemIsUserCheckable);
         }
         else
         {
-            widget3->item(i, 0)->setFlags(widget3->item(i, 0)->flags() | Qt::ItemIsUserCheckable);
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         }
     }
 }
@@ -991,11 +1041,13 @@ int SFDLSauger::addTab(QString tabText)
     int id = ui->tabWidget->addTab(widget, setTabText);
     ui->tabWidget->setTabToolTip(id, cleanTabText);
 
-    QFont releaseFont(defaultFont.defaultFamily(), 11, QFont::Bold);
+    QFont releaseFont(defaultFont.defaultFamily(), 12, QFont::Bold);
     QLabel *rlsText = new QLabel();
     rlsText->setFont(releaseFont);
     rlsText->setText(tabText);
-    rlsText->setStyleSheet("background: #ffffeb; border: 1px solid #f0f0f0; padding: 3px;");
+    rlsText->setStyleSheet(
+        "background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #238636, stop:1 #2ea043); "
+        "color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 13px;");
     layout->addWidget(rlsText);
 
     // add tool bar
@@ -1005,7 +1057,12 @@ int SFDLSauger::addTab(QString tabText)
     tbar->setMovable(0);
     tbar->setOrientation(Qt::Horizontal);
     tbar->setIconSize(QSize(30,30));
-    tbar->setStyleSheet("background: #f0f0f0;");
+    tbar->setStyleSheet(
+        "QToolBar { background: #161b22; border-bottom: 1px solid #21262d; padding: 10px; } "
+        "QToolButton { background: transparent; color: #c9d1d9; border-radius: 6px; padding: 10px 14px; } "
+        "QToolButton:hover { background: #21262d; color: #58a6ff; } "
+        "QToolButton:pressed { background: #30363d; } "
+        "QSpinBox { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; }");
 
     // add start button
     QAction *btnStart = tbar->addAction(tr("Start Download"), [](bool) {});
@@ -1088,18 +1145,27 @@ int SFDLSauger::addTab(QString tabText)
 
     tbar->addSeparator();
 
-    QFont MAXTHREADSDownloadFont(defaultFont.defaultFamily(), 10, QFont::Bold);
+    QLabel *threadsLabel = new QLabel(tr("Threads:"));
+    threadsLabel->setStyleSheet("color: #8b949e; font-size: 12px; padding: 0 8px 0 0;");
+    tbar->addWidget(threadsLabel);
+
+    QFont MAXTHREADSDownloadFont(defaultFont.defaultFamily(), 10, QFont::Normal);
     QSpinBox *MAXTHREADS = new QSpinBox();
     MAXTHREADS->setObjectName("maxdownloads");
     MAXTHREADS->setMinimum(1);
     MAXTHREADS->setMaximum(10);
     MAXTHREADS->setSingleStep(1);
-    MAXTHREADS->setValue(3);
-    MAXTHREADS->setFixedHeight(30);
-    MAXTHREADS->setFixedWidth(50);
+    MAXTHREADS->setValue(10);
+    MAXTHREADS->setFixedHeight(26);
+    MAXTHREADS->setFixedWidth(58);
     MAXTHREADS->setFont(MAXTHREADSDownloadFont);
     MAXTHREADS->setAlignment(Qt::AlignCenter);
-    MAXTHREADS->setToolTip(tr("Maximun Download Threads"));
+    MAXTHREADS->setStyleSheet(
+        "QSpinBox { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 2px 8px; font-size: 11px; } "
+        "QSpinBox::up-button, QSpinBox::down-button { width: 16px; min-width: 16px; background-color: #30363d; border: none; border-radius: 2px; } "
+        "QSpinBox::up-button:hover, QSpinBox::down-button:hover { background-color: #388bfd; } "
+        "QSpinBox::up-arrow, QSpinBox::down-arrow { width: 6px; height: 6px; } ");
+    MAXTHREADS->setToolTip(tr("Maximum Download Threads"));
     connect(MAXTHREADS, SIGNAL(valueChanged(int)), this, SLOT(startDownloadButton()));
     tbar->addWidget(MAXTHREADS);
 
@@ -1108,22 +1174,28 @@ int SFDLSauger::addTab(QString tabText)
         MAXTHREADS->setDisabled(1);
     }
 
+    tbar->addSeparator();
+
     QProgressBar *PROGBAR = new QProgressBar();
     PROGBAR->setObjectName("mProgBar");
     PROGBAR->setMinimum(0);
     PROGBAR->setMaximum(100);
     PROGBAR->setValue(0);
     PROGBAR->setTextVisible(1);
-    PROGBAR->setStyleSheet("QProgressBar { background: white; height: 30px; margin: 0 5px 0 5px; border: 1px solid #420000; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #c52222; width: 1px; margin: 0px; }");
-    PROGBAR->setFixedWidth(150);
+    PROGBAR->setAlignment(Qt::AlignCenter);
+    PROGBAR->setStyleSheet(
+        "QProgressBar { background: #21262d; height: 26px; margin: 0 8px; border: 1px solid #30363d; border-radius: 6px; font-weight: 600; font-size: 11px; text-align: center; } "
+        "QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #238636, stop:1 #2ea043); border-radius: 5px; }");
+    PROGBAR->setFixedWidth(140);
     tbar->addWidget(PROGBAR);
 
-    QFont totalDownloadFont(defaultFont.defaultFamily(), 10, QFont::Bold);
+    QFont totalDownloadFont(defaultFont.defaultFamily(), 11, QFont::Bold);
     QLabel *totalDownloadText = new QLabel();
     totalDownloadText->setObjectName("mStatusText");
     totalDownloadText->setFont(totalDownloadFont);
     totalDownloadText->setText(tr("Wird geladen ..."));
-    totalDownloadText->setStyleSheet("height: 30px; padding: 3px;");
+    totalDownloadText->setStyleSheet(
+        "height: 34px; padding: 6px 12px; color: #c9d1d9; font-weight: 600; font-size: 12px;");
     totalDownloadText->setMinimumWidth(320);
     tbar->addWidget(totalDownloadText);
 
@@ -1134,9 +1206,12 @@ int SFDLSauger::addTab(QString tabText)
 
     QTableWidget *data = new QTableWidget();
     data->setObjectName("data");
+    data->setMinimumHeight(120);
 
     QTableWidget *files = new QTableWidget();
     files->setObjectName("files");
+    files->setMinimumHeight(150);
+    files->setStyleSheet("QTableWidget::item { padding: 3px 10px; font-size: 11px; }");
 
     layout->addWidget(tbar);
     // layout->addWidget(PROUNRAR);
@@ -1177,7 +1252,7 @@ QString SFDLSauger::checkSameDownloads(QString name)
     {
         QString id = ui->tabWidget->tabToolTip(i);
         /*
-        if(id.split(QRegExp("\\([0-9]+\\)")).at(0) == name)
+        if(id.split(QRegularExpression("\\([0-9]+\\)")).at(0) == name)
         {
             dblEntry++;
         }
@@ -1215,30 +1290,29 @@ QStringList SFDLSauger::dirFromFilePath(QString filePath)
 void SFDLSauger::stopDownload()
 {
     int tabIndex = ui->tabWidget->currentIndex();
+    if (tabIndex < 0) return;
     QString id = ui->tabWidget->tabToolTip(tabIndex);
 
-    foreach(FTPDownload* w, g_Worker)
+    QList<QPointer<FTPDownload>> workersCopy = g_Worker;
+    int abortedCount = 0;
+    foreach(const QPointer<FTPDownload> &wp, workersCopy)
     {
-        if(w->_working && id == w->_id && w->thread()->isRunning())
+        if (!wp) continue;
+        if (wp->_working && id == wp->_id && wp->thread() && wp->thread()->isRunning())
         {
-            updateDownloadFileStatus(id, w->_tableRow, tr("User Abbruch!"), 9);
-
-            w->ftp->abort();
-            w->ftp->thread()->quit();
-            w->ftp->thread()->wait();
-            w->ftp->deleteLater();
-            w->abort();
-            w->thread()->quit();
-            w->thread()->wait();
-            w->deleteLater();
+            updateDownloadFileStatus(id, wp->_tableRow, tr("Download abgebrochen"), 9);
+            wp->abort();
+            abortedCount++;
         }
     }
+    if (abortedCount > 0)
+        addLogText(id + tr(": Download manuell beendet."));
 
-    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(ui->tabWidget->tabToolTip(tabIndex));
+    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
+    if (!widget1) return;
 
-    // status table
-    // qint64 timestamp = QDateTime::currentDateTime().toTime_t();
     QTableWidget *wStatus = widget1->findChild<QTableWidget *>("status");
+    if (!wStatus || !wStatus->item(0, 12) || !wStatus->item(0, 13) || !wStatus->item(0, 16)) return;
 
     qlonglong t_startTime = wStatus->item(0, 12)->text().toLongLong();
     qlonglong t_lastTime = wStatus->item(0, 13)->text().toLongLong();
@@ -1257,32 +1331,40 @@ void SFDLSauger::stopDownload()
     wStatus->item(0, 16)->setText(QString::number(t_updateTime));
 
     QToolBar *widget2 = widget1->findChild<QToolBar *>("toolbar");
+    if (widget2)
+    {
+        QToolButton *widget3 = widget2->findChild<QToolButton *>("toolStart");
+        if (widget3) widget3->setEnabled(1);
+        QToolButton *widget4 = widget2->findChild<QToolButton *>("toolStop");
+        if (widget4) widget4->setDisabled(1);
+    }
 
-    QToolButton *widget3 = widget2->findChild<QToolButton *>("toolStart");
-    widget3->setEnabled(1);
-
-    QToolButton *widget4 = widget2->findChild<QToolButton *>("toolStop");
-    widget4->setDisabled(1);
-
-    // update file resume data
     qint64 totalResume = 0;
     QTableWidget *widget5 = widget1->findChild<QTableWidget *>("files");
-    for(int i = 0; i < widget5->rowCount(); i++)
+    if (widget5)
     {
-        qint64 resumeData = widget5->item(i, 12)->text().toLongLong();
-
-        if(widget5->item(i, 0)->checkState() == Qt::Checked && widget5->item(i, 7)->text().toInt() != 10)
+        for(int i = 0; i < widget5->rowCount(); i++)
         {
-            widget5->item(i, 15)->setText(QString::number(resumeData));
-        }
+            QTableWidgetItem *item12 = widget5->item(i, 12);
+            QTableWidgetItem *item0 = widget5->item(i, 0);
+            QTableWidgetItem *item7 = widget5->item(i, 7);
+            QTableWidgetItem *item15 = widget5->item(i, 15);
+            if (!item12 || !item0 || !item7 || !item15) continue;
 
-        totalResume += resumeData;
+            qint64 resumeData = item12->text().toLongLong();
+            if(item0->checkState() == Qt::Checked && item7->text().toInt() != 10)
+            {
+                item15->setText(QString::number(resumeData));
+            }
+            totalResume += resumeData;
+        }
     }
 
     if(totalResume)
     {
         QTableWidget *widget6 = widget1->findChild<QTableWidget *>("status");
-        widget6->item(0, 17)->setText(QString::number(totalResume));
+        if (widget6 && widget6->item(0, 17))
+            widget6->item(0, 17)->setText(QString::number(totalResume));
     }
 
     changeCHKBOX(id, false);
@@ -1299,7 +1381,7 @@ void SFDLSauger::downloadError(QString error)
 
 QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
 {
-    QStringList parts = fullPath.split('/', QString::SkipEmptyParts);
+    QStringList parts = fullPath.split('/', Qt::SkipEmptyParts);
 
     int index = parts.indexOf(splitter);
 
@@ -1319,7 +1401,7 @@ QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
 
 QString SFDLSauger::removeDuplicateSlashes(QString path)
 {
-    QStringList parts = path.split('/', QString::SkipEmptyParts);
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
     return parts.join('/');
 }
 
@@ -1416,19 +1498,23 @@ void SFDLSauger::startDownload(QString tabID = "")
                 downloadList.append(settingsWindow->_ftpProxyPort);
                 downloadList.append(settingsWindow->_ftpProxyUser);
                 downloadList.append(settingsWindow->_ftpProxyPass);
+                downloadList.append(widget3->item(i, 3)->text());    // expected size in bytes
 
                 auto thread = new QThread;
                 auto worker = new FTPDownload(downloadList);
                 worker->moveToThread(thread);
-                g_Worker.append(worker);
+                g_Worker.append(QPointer<FTPDownload>(worker));
 
                 connect(worker, SIGNAL(doProgress(QString,int,qint64,qint64,bool,bool)), this, SLOT(updateDownloadProgress(QString,int,qint64,qint64,bool,bool)));
                 connect(worker, SIGNAL(statusUpdateFile(QString,int,QString,int)), this, SLOT(updateDownloadFileStatus(QString,int,QString,int)));
                 connect(worker, SIGNAL(error(QString)), this, SLOT(downloadError(QString)));
                 connect(thread, SIGNAL(started()), worker, SLOT(process()));
                 connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
-                connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
                 connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+                connect(worker, &FTPDownload::finished, this, [this, worker]() {
+                    g_Worker.removeOne(QPointer<FTPDownload>(worker));
+                    worker->deleteLater();
+                });
 
                 thread->start();
 
@@ -1445,9 +1531,13 @@ void SFDLSauger::startDownload(QString tabID = "")
 void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime = false, bool firstUpdate = false)
 {
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
+    if (!widget1) return;
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
+    if (!widget2 || nRow >= widget2->rowCount()) return;
 
-    qint64 resume = widget2->item(0, 15)->text().toLongLong();
+    qint64 resume = 0;
+    if (QTableWidgetItem *resumeItem = widget2->item(nRow, 15))
+        resume = resumeItem->text().toLongLong();
     if(resume && !firstUpdate)
     {
         read += resume;
@@ -1458,16 +1548,10 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
     {
         g_lastProgressUpdate = lastUpdateTime;
 
-        int progress;
-
-        // divide by zero?
-        if(total < 100)
+        int progress = 0;
+        if (total > 0)
         {
-           progress = 100;
-        }
-        else
-        {
-            progress = read/(total/100);
+            progress = static_cast<int>((read * 100) / total);
         }
 
         // txt files on *nix systems vs windows real size issue
@@ -1478,10 +1562,18 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
 
         // progressbar update
         QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(nRow));
-        PROGBAR->setValue(progress);
+        if (PROGBAR) PROGBAR->setValue(progress);
+
+        // Status bei 100%: "Wird abgeschlossen..." bis retr() tatsächlich fertig ist
+        if (progress >= 100)
+        {
+            QTableWidgetItem *statusItem = widget2->item(nRow, 6);
+            if (statusItem && statusItem->text() == tr("Download läuft ..."))
+                statusItem->setText(tr("Wird abgeschlossen …"));
+        }
 
         // update file time and speed
-        qint64 timestamp = QDateTime::currentDateTime().toTime_t();
+        qint64 timestamp = QDateTime::currentDateTime().toSecsSinceEpoch();
         qint64 start_time = widget2->item(nRow, 8)->text().toInt();
         qint64 last_time = widget2->item(nRow, 9)->text().toInt();
         qint64 zeit = 0;
@@ -1597,7 +1689,15 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
         widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit));
 
         // set main progress bar
-        qlonglong totalProgress = t_sizeLoaded/(t_totalSize/100);
+        int totalProgress = 0;
+        if (t_totalSize > 0)
+        {
+            totalProgress = static_cast<int>((t_sizeLoaded * 100) / t_totalSize);
+            if (totalProgress > 100)
+            {
+                totalProgress = 100;
+            }
+        }
         QProgressBar *mProgBar = widget1->findChild<QProgressBar *>("mProgBar");
         mProgBar->setValue(totalProgress);
 
@@ -1609,39 +1709,44 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
 // update file status
 void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statusMsg, int status)
 {
-    // QString id = ui->tabWidget->tabToolTip(tabID);
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
+    if (!widget1) return;
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
+    if (!widget2 || nRow < 0 || nRow >= widget2->rowCount()) return;
 
-    widget2->item(nRow, 6)->setText(statusMsg);
-    widget2->item(nRow, 7)->setText(QString::number(status));
+    QTableWidgetItem *item6 = widget2->item(nRow, 6);
+    QTableWidgetItem *item7 = widget2->item(nRow, 7);
+    if (!item6 || !item7) return;
+    item6->setText(statusMsg);
+    item7->setText(QString::number(status));
 
-    // abort
-    if(status == 9)
+    // terminal states: abort, done, error
+    if(status == 9 || status == 10 || status == 2 || status == 3)
     {
-        g_runningDownloads--;
+        if (g_runningDownloads > 0)
+        {
+            g_runningDownloads--;
+        }
 
         // set ative download for this tab/id/sfdl
         int activeDownload = g_tabDownloads[tabID];
-        activeDownload -= 1;
+        if (activeDownload > 0)
+        {
+            activeDownload -= 1;
+        }
         g_tabDownloads[tabID] = activeDownload;
 
-        // update status table
         QTableWidget *widget4 = widget1->findChild<QTableWidget *>("status");
-        widget4->item(0, 10)->setText(statusMsg);
-        widget4->item(0, 11)->setText(QString::number(status));
+        if (widget4 && widget4->item(0, 10) && widget4->item(0, 11))
+        {
+            widget4->item(0, 10)->setText(statusMsg);
+            widget4->item(0, 11)->setText(QString::number(status));
+        }
     }
 
     // done
     if(status == 10)
     {
-        g_runningDownloads--;
-
-        // set ative download for this tab/id/sfdl
-        int activeDownload = g_tabDownloads[tabID];
-        activeDownload -= 1;
-        g_tabDownloads[tabID] = activeDownload;
-
         // checks if all downloads are done
         // and create a speedreport
         if(allDownloadsDone(tabID) == true)
@@ -1938,7 +2043,7 @@ void SFDLSauger::chkForExisitingFiles(QString id = "")
                 }
                 else
                 {
-                    widget2->item(i, 6)->setText(tr("User Abbruch!"));
+                    widget2->item(i, 6)->setText(tr("Download abgebrochen"));
                     widget2->item(i, 7)->setText(QString::number(9));
 
                     QTableWidgetItem *RESUME = new QTableWidgetItem(QString::number(currentFileSize));
@@ -2307,11 +2412,7 @@ void SFDLSauger::on_action_ber_triggered()
     infoWindow->setWindowTitle(tr("Über ") + QString(APP_PRODUCT));
     infoWindow->setWindowFlags(infoWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint);
     infoWindow->setSizeGripEnabled(false);
-    infoWindow->setFixedSize(QSize(450, 350));
-    if(infoWindow->_mediaPlayer == false)
-    {
-        infoWindow->playMedia();
-    }
+    infoWindow->setFixedSize(QSize(600, 320));
     infoWindow->show();
 }
 

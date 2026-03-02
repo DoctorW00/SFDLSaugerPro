@@ -20,11 +20,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#include <QtCore/QTime>
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QThread>
-#include <QtCore/QDateTime>
 #include <QtCore/QByteArray>
 #include <QtCore/QSharedMemory>
+#include <QtCore/QRandomGenerator>
 
 #include "singleapplication.h"
 #include "singleapplication_p.h"
@@ -75,8 +75,8 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
     }
 
     InstancesInfo* inst = static_cast<InstancesInfo*>( d->memory->data() );
-    QTime time;
-    time.start();
+    QElapsedTimer timer;
+    timer.start();
 
     // Make sure the shared memory block is initialised and in consistent state
     while( true ) {
@@ -84,7 +84,7 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
 
         if( d->blockChecksum() == inst->checksum ) break;
 
-        if( time.elapsed() > 5000 ) {
+        if( timer.elapsed() > 5000 ) {
             qWarning() << "SingleApplication: Shared memory block has been in an inconsistent state from more than 5s. Assuming primary instance failure.";
             d->initializeMemoryBlock();
         }
@@ -92,8 +92,8 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
         d->memory->unlock();
 
         // Random sleep here limits the probability of a collision between two racing apps
-        qsrand( QDateTime::currentMSecsSinceEpoch() % std::numeric_limits<uint>::max() );
-        QThread::sleep( 8 + static_cast <unsigned long>( static_cast <float>( qrand() ) / RAND_MAX * 10 ) );
+        const int sleepExtra = QRandomGenerator::global()->bounded(11);
+        QThread::sleep( 8 + static_cast<unsigned long>(sleepExtra) );
     }
 
     if( inst->primary == false) {

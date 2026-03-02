@@ -42,7 +42,8 @@
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QTcpSocket>
-#include <QTextCodec>
+#include <QStringConverter>
+#include <QStringEncoder>
 #include <QMetaObject>
 #include <QMetaMethod>
 #include <QMetaEnum>
@@ -1458,9 +1459,10 @@ bool IrcConnection::sendCommand(IrcCommand* command)
         if (filtered) {
             res = false;
         } else {
-            QTextCodec* codec = QTextCodec::codecForName(command->encoding());
-            Q_ASSERT(codec);
-            res = sendData(codec->fromUnicode(command->toString()));
+            auto encOpt = QStringConverter::encodingForName(command->encoding());
+            QStringConverter::Encoding enc = encOpt ? *encOpt : QStringConverter::Utf8;
+            QStringEncoder encoder(enc);
+            res = sendData(encoder.encode(command->toString()));
         }
         if (!command->parent())
             command->deleteLater();

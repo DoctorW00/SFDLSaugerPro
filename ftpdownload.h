@@ -3,12 +3,10 @@
 
 #include <QObject>
 #include <QMutex>
-#include <QtFtp/QFtp>
 #include <QFile>
 #include <QDir>
-#include <QTcpSocket>
-#include <QEventLoop>
 #include <QNetworkProxy>
+#include "ftpclient.h"
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -21,18 +19,17 @@ class FTPDownload : public QObject
 public:
     FTPDownload(QStringList data);
     ~FTPDownload();
-    void abort();
+    Q_INVOKABLE void abort();
     bool _abort;
     bool _working;
     int _tableRow = -1;
     QString _id;
-    QFtp *ftp;
+    FtpClient *ftp = nullptr;
 
 public slots:
     void process();
 
 private slots:
-    void isDone(bool);
     void updateProgress(qint64, qint64);
     void finishedDownload();
 
@@ -45,7 +42,6 @@ signals:
 private:
     QStringList data;
     QFile *file;
-    QEventLoop *ftpLoop;
     QMutex mutex;
     QString id;
     QString host;
@@ -57,6 +53,7 @@ private:
     QString dlfile;
     int tableRow;
     QNetworkProxy proxy;
+    qint64 expectedSize = 0;
 
 };
 

@@ -34,6 +34,10 @@ FTPDownload::FTPDownload(QStringList data) : data(data)
     QString proxyPort = this->data.at(10);
     QString proxyUser = this->data.at(11);
     QString proxyPass = this->data.at(12);
+    if (this->data.size() > 13)
+    {
+        expectedSize = this->data.at(13).toLongLong();
+    }
 
     // set proxy
     if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
@@ -68,6 +72,10 @@ void FTPDownload::abort()
     mutex.lock();
     _abort = true;
     _working = false;
+    if(ftp)
+    {
+        ftp->abort();
+    }
     mutex.unlock();
 }
 
@@ -86,104 +94,115 @@ void FTPDownload::process()
     _working = true;
     mutex.unlock();
 
-    // mutex.lock();
-
-    ftpLoop = new QEventLoop(this);
-    ftp = new QFtp(this);
-    // ftp->setObjectName(id);
-
-    connect(ftp, SIGNAL(done(bool)), this, SLOT(isDone(bool)));
-    connect(ftp, SIGNAL(dataTransferProgress(qint64,qint64)), this, SLOT(updateProgress(qint64, qint64)));
+    ftp = new FtpClient(this);
+    connect(ftp, &FtpClient::dataTransferProgress, this, &FTPDownload::updateProgress);
 
     file = new QFile(this);
     // make sure paths are working cross platform
     file->setFileName(QDir::toNativeSeparators(QDir::cleanPath(dlpath + "/" + dlfile)));
 
-    if(file->size())
+    QString err;
+    if(!proxy.hostName().isEmpty() && proxy.port() > 0)
     {
-        // continue download
-        if(file->open(QIODevice::Append) && file->isWritable())
+        ftp->setProxy(proxy);
+    }
+    else
+    {
+        ftp->setProxy(QNetworkProxy::NoProxy);
+    }
+
+    if(!ftp->connectToHost(host, port.toInt(), &err))
+    {
+        QString msg = tr("Verbindung fehlgeschlagen: ") + err;
+        emit statusUpdateFile(id, _tableRow, msg, 2);
+        emit error(id + ": " + msg);
+        _working = false;
+        emit finished();
+        return;
+    }
+    if(!ftp->login(user, pass, &err))
+    {
+        QString msg = tr("Login fehlgeschlagen: ") + err;
+        emit statusUpdateFile(id, _tableRow, msg, 2);
+        emit error(id + ": " + msg);
+        _working = false;
+        emit finished();
+        return;
+    }
+    if(!dir.isEmpty())
+    {
+        if(!ftp->cwd(dir, &err))
         {
-            ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
-            ftp->connectToHost(host, port.toInt());
-            ftp->login(user, pass);
-            ftp->cd(dir);
+            QString msg = tr("Verzeichnis nicht gefunden: ") + err;
+            emit statusUpdateFile(id, _tableRow, msg, 2);
+            emit error(id + ": " + msg);
+            _working = false;
+            emit finished();
+            return;
+        }
+    }
 
-            ftp->m_fileSize = file->size(); // set file size
+    emit statusUpdateFile(id, _tableRow, tr("Download läuft ..."), 1);
 
-            ftp->get(dlfile, file);
-            ftp->close();
-            ftpLoop->exec();
+    qint64 resumeFrom = 0;
+    if(file->exists())
+    {
+        resumeFrom = file->size();
+    }
+
+    if(resumeFrom > 0)
+    {
+        if(!file->open(QIODevice::Append))
+        {
+            QString msg = tr("Kann Datei nicht öffnen (Append)");
+            emit statusUpdateFile(id, _tableRow, msg, 3);
+            emit error(id + ": " + msg);
+            _working = false;
+            emit finished();
+            return;
         }
     }
     else
     {
-        // download from scratch
-        if(file->open(QIODevice::WriteOnly) && file->isWritable())
+        if(!file->open(QIODevice::WriteOnly))
         {
-            ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
-            ftp->connectToHost(host, port.toInt());
-            ftp->login(user, pass);
-            ftp->cd(dir);
-            ftp->m_fileSize = 0;
-            ftp->get(dlfile, file);
-            ftp->close();
-            ftpLoop->exec();
+            QString msg = tr("Kann Datei nicht öffnen (Write)");
+            emit statusUpdateFile(id, _tableRow, msg, 3);
+            emit error(id + ": " + msg);
+            _working = false;
+            emit finished();
+            return;
         }
     }
+
+    qint64 totalSize = 0;
+    if(!ftp->retr(dlfile, file, resumeFrom, &totalSize, &err))
+    {
+        mutex.lock();
+        bool wasAborted = _abort;
+        mutex.unlock();
+
+        if (wasAborted)
+        {
+            emit statusUpdateFile(id, _tableRow, tr("Download abgebrochen"), 9);
+        }
+        else
+        {
+            QString msg = tr("Download fehlgeschlagen: ") + err;
+            emit statusUpdateFile(id, _tableRow, msg, 3);
+            emit error(id + ": " + msg);
+        }
+        _working = false;
+        emit finished();
+        return;
+    }
+
+    emit statusUpdateFile(id, _tableRow, tr("Fertig!"), 10);
 
     file->flush();
     file->close();
 
-    // mutex.unlock();
-}
-
-void FTPDownload::isDone(bool)
-{
-    if(ftp->error())
-    {
-        /*
-        QFtp::NoError           0	No error occurred.
-        QFtp::HostNotFound      2	The host name lookup failed.
-        QFtp::ConnectionRefused	3	The server refused the connection.
-        QFtp::NotConnected      4	Tried to send a command, but there is no connection to a server.
-        QFtp::UnknownError      1	An error other than those specified above occurred.
-        */
-
-        if(ftp->error() == 1)
-        {
-            emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler: ") + ftp->errorString(), 3);
-        }
-
-        if(ftp->error() == 2)
-        {
-            emit statusUpdateFile(id, _tableRow, tr("Host nicht gefunden: ") + ftp->errorString(), 2);
-        }
-
-        if(ftp->error() == 3)
-        {
-            emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert: ") + ftp->errorString(), 2);
-        }
-
-        if(ftp->error() == 4)
-        {
-            emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden: ") + ftp->errorString(), 2);
-        }
-    }
-    else
-    {
-        emit statusUpdateFile(id, _tableRow, tr("Fertig!"), 10);
-    }
-
-    if(file->isOpen())
-    {
-        file->close();
-    }
-
-    mutex.lock();
     _working = false;
-    mutex.lock();
-
     emit finished();
 }
 
@@ -191,6 +210,17 @@ void FTPDownload::updateProgress(qint64 read, qint64 total)
 {
     if(_working && !_abort)
     {
+        if (total <= 0)
+        {
+            if (expectedSize > 0)
+            {
+                total = expectedSize;
+            }
+            else
+            {
+                total = read;
+            }
+        }
         emit doProgress(id, _tableRow, read, total, false, false);
     }
 }

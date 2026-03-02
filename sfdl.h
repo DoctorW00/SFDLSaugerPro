@@ -8,8 +8,6 @@
 #include <QObject>
 // #include <QHostAddress>
 
-#include <QtFtp/QFtp>
-
 #ifdef QT_DEBUG
     #include <QDebug>
 #endif
@@ -32,11 +30,6 @@ private slots:
     QString ListElements(QDomElement root, QString tagname);
     QString decryptString(QString password, QString encodedString);
     bool validateIPv4(QString ip);
-
-private:
-    QFtp *ftp;
-    QTimer *timer;
-    QEventLoop *loop;
 
 signals:
     void sendSFDLData(QStringList data, QStringList files);

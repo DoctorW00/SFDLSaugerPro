@@ -1,4 +1,4 @@
-QT += core widgets gui network ftp xml multimedia
+QT += core widgets gui network xml multimedia
 
 TARGET = SFDLSaugerPro
 TEMPLATE = app
@@ -13,6 +13,7 @@ SOURCES += \
         sfdl.cpp \
         ftplistfiles.cpp \
         ftpdownload.cpp \
+        ftpclient.cpp \
         about.cpp \
         settings.cpp \
         crc32.cpp \
@@ -28,6 +29,7 @@ HEADERS += \
         sfdl.h \
         ftplistfiles.h \
         ftpdownload.h \
+        ftpclient.h \
         data.h \
         about.h \
         settings.h \
@@ -75,7 +77,7 @@ win32 {
 }
 # <- unrar end
 
-CONFIG += C++14 crypto
+CONFIG += c++17 crypto
 VERSION = 1.5.1
 
 QMAKE_TARGET_COMPANY = "GrafSauger"

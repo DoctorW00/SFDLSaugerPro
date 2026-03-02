@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QTimer>
+#include <QSslSocket>
 #include <IrcTextFormat>
 #include <IrcConnection>
 #include <Irc>
@@ -46,6 +47,10 @@ chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
         auto* socket = connection->socket();
         QString errMsg = QString("[IRC SOCKET ERROR] %1: %2").arg(error).arg(socket ? socket->errorString() : "<no socket>");
         appendDebugMessage(errMsg);
+        if(ircServer_UseSSL && error == QAbstractSocket::RemoteHostClosedError)
+        {
+            appendDebugMessage(tr("[HINWEIS] SSL/TLS: Prüfe, ob OpenSSL-DLLs vorhanden sind (libssl-1_1-x64.dll und libcrypto-1_1-x64.dll) oder ob der Port korrekt ist."));
+        }
     });
     connect(connection, SIGNAL(connected()), this, SLOT(onConnected()));
     connect(connection, SIGNAL(connecting()), this, SLOT(onConnecting()));
@@ -399,6 +404,16 @@ void chatIRC::onDisconnected()
     ui->chatBrowser->append(IrcMessageFormatter::formatMessage(QStringLiteral("! Disconnected from %1.")).arg(ircServer_DisplayName));
 }
 
+void chatIRC::closeEvent(QCloseEvent *event)
+{
+    if (connection && connection->isActive())
+    {
+        connection->quit(connection->realName());
+        connection->close();
+    }
+    QDialog::closeEvent(event);
+}
+
 void chatIRC::onTextEdited()
 {
     ui->inputEdit->setStyleSheet(QString());
@@ -429,7 +444,7 @@ void chatIRC::onTextEntered()
         if(command->type() == IrcCommand::Message || command->type() == IrcCommand::CtcpAction) {
             IrcMessage* msg = command->toMessage(connection->nickName(), connection);
             receiveMessage(msg);
-            delete msg;
+            msg->deleteLater();
         }
 
         ui->inputEdit->clear();
@@ -610,7 +625,7 @@ void chatIRC::createParser()
     parser->addCommand(IrcCommand::Part, QStringLiteral("PART (<#channel>) (<message...>)"));
 }
 
-void chatIRC::createConnection()
+bool chatIRC::createConnection()
 {
     /*
     qDebug() << "IRC Con:";
@@ -648,22 +663,54 @@ void chatIRC::createConnection()
                                        ircServer_ProxyUser,
                                        ircServer_ProxyPass
                                        ));
-
-        connection->setSocket(proxySocket);
-    }
-
-    connection->setHost(ircServer_Host);
-    if(ircServer_UseSSL)
-    {
-        connection->setPort(+ircServer_Port); // leading + for secure con
     }
     else
     {
-        connection->setPort(ircServer_Port);
+        proxySocket->setProxy(QNetworkProxy::NoProxy);
     }
-    connection->setUserName(ircServer_UserName);
-    connection->setNickName(ircServer_NickName);
-    connection->setRealName(ircServer_RealName);
+
+    connection->setSocket(proxySocket);
+
+    connection->setHost(ircServer_Host);
+
+    if(ircServer_UseSSL && !QSslSocket::supportsSsl())
+    {
+        appendDebugMessage(tr("[SSL] Diese Qt-Installation hat keine SSL-Unterstützung oder OpenSSL fehlt."));
+        appendDebugMessage(tr("[SSL] Bitte OpenSSL 1.1 DLLs neben der EXE platzieren: libssl-1_1-x64.dll + libcrypto-1_1-x64.dll."));
+        return false;
+    }
+
+    connection->setSecure(ircServer_UseSSL);
+
+    int port = ircServer_Port;
+    if(ircServer_UseSSL && port == 6667)
+    {
+        port = 6697;
+    }
+    else if(!ircServer_UseSSL && port == 6697)
+    {
+        port = 6667;
+    }
+    connection->setPort(port);
+
+    QString nick = ui->lineNickName->text().trimmed();
+    QString user = ui->lineUserName->text().trimmed();
+    QString real = ui->lineRealName->text().trimmed();
+
+    if(nick.isEmpty()) nick = ircServer_NickName;
+    if(user.isEmpty()) user = ircServer_UserName;
+    if(real.isEmpty()) real = ircServer_RealName;
+
+    if(nick.isEmpty())
+    {
+        nick = QString("SFDLUser%1").arg(QRandomGenerator::global()->bounded(10000));
+    }
+    if(user.isEmpty()) user = nick;
+    if(real.isEmpty()) real = nick;
+
+    connection->setUserName(user);
+    connection->setNickName(nick);
+    connection->setRealName(real);
 
     if(ircServer_Password.length())
     {
@@ -672,6 +719,7 @@ void chatIRC::createConnection()
     }
 
     connection->open();
+    return true;
 
     /*
     if(ircServer_Room.length())
@@ -724,12 +772,16 @@ void chatIRC::connectButtonHandling()
     }
     else
     {
-        ui->ircConnectButton->setText(tr("Beenden"));
-        createConnection();
+        ui->ircConnectButton->setText(tr("Trennen"));
+        if(!createConnection())
+        {
+            ui->ircConnectButton->setText(tr("Verbinden"));
+            ui->splitter_2->setSizes({100, 1});
+            return;
+        }
 
-        ui->splitter_2->setCollapsible(0, true);
-        ui->splitter_2->setSizes({0, 1});
-        ui->splitter_2->handle(0)->setEnabled(true);
+        ui->splitter_2->setCollapsible(0, false);
+        ui->splitter_2->setSizes({100, 1});
     }
 }
 

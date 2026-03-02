@@ -31,7 +31,8 @@
 
 #include <IrcGlobal>
 #include <QtCore/qbytearray.h>
-#include <QTextCodec>
+#include <QStringConverter>
+#include <QStringDecoder>
 
 IRC_BEGIN_NAMESPACE
 

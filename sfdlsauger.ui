@@ -19,7 +19,7 @@
    <string>SFDLSauger Pro</string>
   </property>
   <property name="styleSheet">
-   <string notr="true"/>
+   <string notr="true">background-color: #0d1117;</string>
   </property>
   <property name="iconSize">
    <size>
@@ -48,7 +48,10 @@
      <widget class="QSplitter" name="splitter">
       <property name="styleSheet">
        <string notr="true">QSplitter::handle {
-	background: #FFFFFF url(:/gfx/splitter.png) center no-repeat;
+	background: #21262d;
+}
+QSplitter::handle:hover {
+	background: #58a6ff;
 }</string>
       </property>
       <property name="orientation">
@@ -109,8 +112,12 @@
         <bool>false</bool>
        </property>
        <property name="styleSheet">
-        <string notr="true">border: none;
-background: #e4e4e4;</string>
+        <string notr="true">border: 1px solid #21262d;
+background: #0d1117;
+color: #8b949e;
+font-size: 12px;
+border-radius: 8px;
+padding: 12px;</string>
        </property>
        <property name="frameShape">
         <enum>QFrame::Shape::Box</enum>
@@ -188,46 +195,32 @@ li.checked::marker { content: &quot;\2612&quot;; }
        </property>
        <property name="styleSheet">
         <string notr="true">QTabWidget::pane {
-	border: none;
-    /*background: #b0b0b0 url(:/gfx/tabbackground.png) center no-repeat;*/
-	background: #ffffff url(:/gfx/tabbackground.png) center no-repeat;
-	border-top: 1px solid black;
+	border: 1px solid #21262d;
+	border-top: none;
+	background: #0d1117;
+	border-radius: 0 0 8px 8px;
 }
 
 QTabWidget::tab-bar {
-    background: #ffffff ;
-}
-
-QTabWidget::tab-bar:top {
-    top: 1px;
-}
-
-QTabWidget::tab-bar:bottom {
-    bottom: 1px;
-}
-
-QTabWidget::tab-bar:left {
-    right: 1px;
-}
-
-QTabWidget::tab-bar:right {
-    left: 1px;
+    background: #161b22;
 }
 
 QTabBar::tab {
-	border: 1px solid #2d2d2d;
+	background: #21262d;
+	color: #8b949e;
+	padding: 10px 20px;
+	border-radius: 6px 6px 0 0;
 }
 
 QTabBar::tab:selected {
-    background: white;
-}
-
-QTabBar::tab:!selected {
-    background: silver;
+    background: #0d1117;
+	color: #58a6ff;
+	font-weight: 600;
 }
 
 QTabBar::tab:!selected:hover {
-    background: #999;
+    background: #30363d;
+	color: #c9d1d9;
 }
 
 QTabBar::tab:top:!selected {
@@ -393,7 +386,7 @@ QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
      <normaloff>:/gfx/info.png</normaloff>:/gfx/info.png</iconset>
    </property>
    <property name="text">
-    <string>Über SFDLSauger</string>
+    <string>Über SFDLSauger Pro</string>
    </property>
   </action>
   <action name="actionEinstellungen">

@@ -25,8 +25,9 @@ inline void registerMetaTypes()
 #include <QObject>
 #include <QInputDialog>
 #include <QRegularExpression>
+#include <QPointer>
 #include <QThread>
-#include <QDesktopWidget>
+#include <QScreen>
 
 #include <QMenu>
 #include <QAction>
@@ -144,9 +145,9 @@ private:
     qint64 g_lastProgressUpdate;
 
     // ftp downloads
-    QList<FTPDownload*> g_Worker;
+    QList<QPointer<FTPDownload>> g_Worker;
     int g_runningDownloads = 0;
-    int g_maxDownloads = 10;
+    int g_maxDownloads = 100;
     QMap<QString, int> g_tabDownloads;
 
     // crc32 threads

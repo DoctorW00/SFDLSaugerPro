@@ -27,8 +27,8 @@ int main(int argc, char *argv[])
     #if defined(Q_OS_WIN)
     QSettings set("HKEY_CURRENT_USER\\SOFTWARE\\CLASSES", QSettings::NativeFormat);
     set.setValue(".sfdl/DefaultIcon/.",QDir::toNativeSeparators(qApp->applicationFilePath()));
-    set.setValue(".sfdl/.","grafsauger.sfdlsauger.pro");
-    set.setValue("grafsauger.sfdlsauger.pro/shell/open/command/.", QDir::toNativeSeparators(qApp->applicationFilePath()) + " %1");
+    set.setValue(".sfdl/.","grafsauger.sfdlsaugerpro");
+    set.setValue("grafsauger.sfdlsaugerpro/shell/open/command/.", QDir::toNativeSeparators(qApp->applicationFilePath()) + " %1");
     // set.endGroup();
 
     QSettings reg("HKEY_CURRENT_USER\\SOFTWARE\\Classes\\.sfdl\\DefaultIcon", QSettings::NativeFormat);

@@ -37,8 +37,7 @@ IRC_BEGIN_NAMESPACE
 
 IRC_CORE_EXPORT bool irc_is_supported_encoding(const QByteArray& encoding)
 {
-    static QSet<QByteArray> codecs = IrcPrivate::listToSet(QTextCodec::availableCodecs());
-    return codecs.contains(encoding);
+    return QStringConverter::encodingForName(encoding).has_value();
 }
 
 IrcMessageDecoder::IrcMessageDecoder()
@@ -56,21 +55,15 @@ QString IrcMessageDecoder::decode(const QByteArray& data, const QByteArray& enco
     if (data.isEmpty())
         return QString();
 
-    static const QTextCodec *utf8Codec = QTextCodec::codecForName("UTF-8");
-    if (utf8Codec) {
-        QTextCodec::ConverterState state;
-        QString utf8 = utf8Codec->toUnicode(data, data.length(), &state);
-        if (state.invalidChars == 0)
-            return utf8;
-    }
+    QStringDecoder utf8Decoder(QStringConverter::Utf8);
+    QString utf8 = utf8Decoder.decode(data);
+    if (!utf8Decoder.hasError())
+        return utf8;
 
-    QTextCodec *defaultCodec = QTextCodec::codecForName(encoding);
-    if (!defaultCodec)
-        defaultCodec = QTextCodec::codecForName("UTF-8");
-
-    QTextCodec* codec = QTextCodec::codecForUtfText(data, defaultCodec);
-    Q_ASSERT(codec);
-    return codec->toUnicode(data);
+    auto encOpt = QStringConverter::encodingForName(encoding);
+    QStringConverter::Encoding enc = encOpt ? *encOpt : QStringConverter::Utf8;
+    QStringDecoder decoder(enc);
+    return decoder.decode(data);
 }
 #endif // IRC_DOXYGEN
 

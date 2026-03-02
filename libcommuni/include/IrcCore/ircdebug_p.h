@@ -34,11 +34,7 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qstring.h>
 #include <QtCore/qdatetime.h>
-#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
 #include <QRegularExpression>
-#else
-#include <QRegExp>
-#endif
 
 IRC_BEGIN_NAMESPACE
 
@@ -150,14 +146,8 @@ static bool irc_debug_enabled(IrcConnection* c, uint l)
         if (dbg_name.isEmpty())
             return true;
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
         return QRegularExpression(QRegularExpression::wildcardToRegularExpression(dbg_name),
                        QRegularExpression::CaseInsensitiveOption).match(c->displayName()).hasMatch();
-#else
-        return QRegExp(dbg_name,
-                   Qt::CaseInsensitive,
-                   QRegExp::Wildcard).exactMatch(c->displayName());
-#endif
     }
     return false;
 }

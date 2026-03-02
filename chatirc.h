@@ -121,6 +121,7 @@ Q_DECLARE_METATYPE(gsSocks5ProxyInfo)
 #include <QTextDocument>
 #include <QHash>
 #include <QListView>
+#include <QCloseEvent>
 
 #include <QString>
 #include <QVector>
@@ -165,7 +166,7 @@ public:
 private slots:
     void loadIRCLayout();
     void createParser();
-    void createConnection();
+    bool createConnection();
     void createCompleter();
     void createUserList();
     void createBufferList();
@@ -192,6 +193,7 @@ private slots:
     void setupProxyComboBox();
     void on_selectIRCProxy_currentIndexChanged(int index);
     void appendDebugMessage(const QString& text);
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     static const QVector<gsIrcServerInfo>& predefinedServers();

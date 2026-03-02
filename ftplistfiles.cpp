@@ -1,174 +1,46 @@
 #include "ftplistfiles.h"
 
+#include <QRegularExpression>
+
 FTPListFiles::FTPListFiles(QObject *parent) : QObject(parent) {}
 
-// ftp action
-void FTPListFiles::setFTP()
+static bool parseListLine(const QString& line, bool* isDir, QString* name, qint64* size)
 {
-    loop = new QEventLoop(this);
+    QRegularExpression re1(QStringLiteral("^([dl-])[rwx-]{9}\\s+\\d+\\s+\\S+\\s+\\S+\\s+(\\d+)\\s+\\w+\\s+\\d+\\s+[\\d:]+\\s+(.+)$"));
+    QRegularExpression re2(QStringLiteral("^([dl-])[rwx-]{9}\\s+\\d+\\s+\\S+\\s+\\S+\\s+(\\d+)\\s+\\w+\\s+\\d+\\s+\\d+\\s+(.+)$"));
 
-    timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(ftpTimeout()));
-
-    ftp = new QFtp(this);
-    ftp->setTransferMode(QFtp::Passive);
-
-    connect(ftp, SIGNAL(listInfo(QUrlInfo)), this, SLOT(doListInfo(QUrlInfo)));
-    connect(ftp, SIGNAL(done(bool)), this, SLOT(isDone(bool)));
-    connect(ftp, SIGNAL(commandStarted(int)), this, SLOT(ftpCommandStarted(int)));
-    connect(ftp, SIGNAL(commandFinished(int,bool)), this, SLOT(ftpCommandFinished(int,bool)));
-    connect(ftp, SIGNAL(rawCommandReply(int,QString)), this, SLOT(ftpRawCommandReply(int,QString)));
-    connect(ftp, SIGNAL(stateChanged(int)), this, SLOT(ftpstateChanged(int)));
-}
-
-void FTPListFiles::ftpTimeout()
-{
-    if(timer->isActive())
+    QRegularExpressionMatch match = re1.match(line);
+    if (!match.hasMatch())
     {
-        timer->stop();
+        match = re2.match(line);
+    }
+    if (match.hasMatch())
+    {
+        if (isDir) *isDir = (match.captured(1) == "d");
+        if (size) *size = match.captured(2).toLongLong();
+        if (name) *name = match.captured(3).trimmed();
+        return true;
     }
 
-    if(loop->isRunning())
+    QString trimmed = line.trimmed();
+    if (trimmed.isEmpty())
     {
-        loop->exit(0);
+        return false;
     }
-
-    ftp->abort();
-    ftp->close();
-    ftp->deleteLater();
-
-    emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Timeout! Keine Verbindung zum Server.</font>"));
-    emit sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
-
-    delete ftp;
-    setFTP();
-}
-
-void FTPListFiles::ftpstateChanged(int state)
-{
-#ifdef QT_DEBUG
-    qDebug() << "ftpstateChanged: " << state;
-#endif
-}
-
-void FTPListFiles::ftpRawCommandReply(int code, const QString & cmd)
-{
-#ifdef QT_DEBUG
-    qDebug() << "ftpRawCommandReply: " << code << cmd;
-#endif
-}
-
-void FTPListFiles::ftpCommandStarted(int id)
-{
-#ifdef QT_DEBUG
-    if(id == 0)
+    QStringList parts = trimmed.split(' ', Qt::SkipEmptyParts);
+    if (parts.isEmpty())
     {
-        #ifdef QT_DEBUG
-            qDebug() << "ftp commandStarted (Unconnected) id: " << id;
-        #endif
+        return false;
     }
-
-    if(id == 1)
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "ftp commandStarted (HostLookup) id: " << id;
-        #endif
-    }
-
-    if(id == 2)
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "ftp commandStarted (Connecting) id: " << id;
-        #endif
-    }
-
-    if(id == 3)
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "ftp commandStarted (Connected) id: " << id;
-        #endif
-    }
-
-    if(id == 4)
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "ftp commandStarted (LoggedIn) id: " << id;
-        #endif
-    }
-
-    if(id == 5)
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "ftp commandStarted (Closing) id: " << id;
-        #endif
-    }
-#endif
-}
-
-void FTPListFiles::ftpCommandFinished(int commandId, bool error)
-{
-    QString commandName;
-    QString extraInfo;
-    QFtp::Command cmd = ftp->currentCommand();
-
-    switch(cmd)
-    {
-        case QFtp::None:            commandName = "None"; break;
-        case QFtp::SetTransferMode: commandName = "SetTransferMode"; break;
-        case QFtp::SetProxy:        commandName = "SetProxy"; break;
-        case QFtp::ConnectToHost:   commandName = "ConnectToHost"; break;
-        case QFtp::Login:           commandName = "Login"; break;
-        case QFtp::Close:           commandName = "Close"; break;
-        case QFtp::List:            commandName = "List"; break;
-        case QFtp::Cd:
-        {
-            commandName = "Cd";
-            extraInfo = " nach " + lastCdPath;
-            break;
-        }
-        case QFtp::Get:             commandName = "Get"; break;
-        case QFtp::Put:             commandName = "Put"; break;
-        case QFtp::Remove:          commandName = "Remove"; break;
-        case QFtp::Mkdir:           commandName = "Mkdir"; break;
-        case QFtp::Rmdir:           commandName = "Rmdir"; break;
-        case QFtp::Rename:          commandName = "Rename"; break;
-        case QFtp::RawCommand:      commandName = "RawCommand"; break;
-        default:                    commandName = "Unbekannter Befehl (" + QString::number(cmd) + ")"; break;
-    }
-
-    if(error)
-    {
-        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP-Fehler bei %1 (ID %2): %3</font>")
-                             .arg(commandName)
-                             .arg(commandId)
-                             .arg(ftp->errorString()));
-    }
-    else
-    {
-        emit sendLogText(baseSFDL + tr(": %1 erfolgreich (ID %2)").arg(commandName).arg(commandId));
-    }
+    if (isDir) *isDir = trimmed.startsWith('d');
+    if (name) *name = parts.last();
+    if (size) *size = 0;
+    return true;
 }
 
 void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
                                   QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data)
 {
-    // set proxy
-    if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
-    {
-        proxy.setType(QNetworkProxy::Socks5Proxy);
-
-        proxy.setHostName(proxyHost);
-        proxy.setPort(proxyPort.toInt());
-
-        if(!proxyUser.isEmpty() && !proxyPass.isEmpty())
-        {
-            proxy.setUser(proxyUser);
-            proxy.setPassword(proxyPass);
-        }
-
-        QNetworkProxy::setApplicationProxy(proxy);
-    }
-
     if(user.isEmpty())
     {
         user = "anonymous";
@@ -189,17 +61,32 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
     baseUser = user;
     basePass = pass;
     basePath = path;
+    proxyHostValue = proxyHost;
+    proxyPortValue = proxyPort;
+    proxyUserValue = proxyUser;
+    proxyPassValue = proxyPass;
     // baseSFDL = SFDL;
 
     lastCdPath = path;
 
     pathList.clear();
+    fileList.clear();
+
+    if(!ftp)
+    {
+        ftp = new FtpClient(this);
+    }
 
     getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
 
     // return fileList;
 
     emit sendFTPData(data, fileList);
+
+    if(ftp)
+    {
+        ftp->quit();
+    }
 }
 
 void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path)
@@ -208,109 +95,119 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
 
     emit sendLogText(baseSFDL + tr(": Lade Inhalt von Pfad: ") + basePath);
 
-    // setup ftp connects
-    setFTP();
-
-    timer = new QTimer(this);
-    timer->setSingleShot(1);
-    // connect(timer, SIGNAL(timeout()), this, SLOT(ftpTimeout()));
-    timer->start(60);
-
-    loop = new QEventLoop(this);
-    loop->connect(ftp, SIGNAL(done(bool)), loop, SLOT(quit()));
-
-    // connect to ftp server
-    ftp->connectToHost(ip, port);
-    ftp->login(user, pass);
-    if(!path.isEmpty())
+    if(!ftp)
     {
-        lastCdPath = path;
-        ftp->cd(path);
+        emit sendWarning(tr("FTP Fehler"), tr("FTP Client nicht initialisiert"));
+        return;
     }
 
-    ftp->list();
-
-    loop->exec();
-    ftp->close();
-
-    if(timer->isActive())
+    // set proxy
+    if(!proxyHostValue.isEmpty() && !proxyPortValue.isEmpty())
     {
-        timer->stop();
-    }
-
-    for(int i = 0; i < pathList.count(); i++)
-    { 
-        #ifdef QT_DEBUG
-            qDebug() << "pathList: " << pathList.at(i);
-        #endif
-
-        QString getPath = pathList.at(i);
-        pathList.removeAt(i);
-
-        getFTPIndex(baseIP, basePort, baseUser, basePass, getPath);
-    }
-}
-
-void FTPListFiles::doListInfo(const QUrlInfo& info)
-{
-    if(info.isFile())
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "isFile: " << info.name() + "|" + QString::number(info.size());
-        #endif
-
-        if(basePath.endsWith("/"))
+        proxy.setType(QNetworkProxy::Socks5Proxy);
+        proxy.setHostName(proxyHostValue);
+        proxy.setPort(proxyPortValue.toInt());
+        if(!proxyUserValue.isEmpty() && !proxyPassValue.isEmpty())
         {
-            fileList.append(basePath + info.name() + "|" + QString::number(info.size()));
-            emit sendLogText(baseSFDL + ": " + basePath + info.name() + " [" + QString::number(info.size()) + "]");
+            proxy.setUser(proxyUserValue);
+            proxy.setPassword(proxyPassValue);
         }
-        else
-        {
-            fileList.append(basePath + "/" + info.name() + "|" + QString::number(info.size()));
-            emit sendLogText(baseSFDL + ": " + basePath + "/" + info.name() + " [" + QString::number(info.size()) + "]");
-        }
-    }
-
-    if(info.isDir() && info.name() != "." && info.name() != "..")
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "isDir: " << info.name();
-        #endif
-
-        if(basePath.endsWith("/"))
-        {
-            pathList.append(basePath + info.name());
-            emit sendLogText(baseSFDL + ": " + basePath + info.name() + " [Verzeichnis]");
-        }
-        else
-        {
-            pathList.append(basePath + "/" + info.name());
-            emit sendLogText(baseSFDL + ": " + basePath + "/" + info.name() + " [Verzeichnis]");
-        }
-    }
-}
-
-void FTPListFiles::isDone(bool)
-{
-    if(timer->isActive())
-    {
-        timer->stop();
-    }
-
-    if(ftp->error())
-    {
-        #ifdef QT_DEBUG
-            qDebug() << "FTP Error: " << ftp->error();
-            qDebug() << "FTP ErrorString: " << ftp->errorString();
-        #endif
-
-        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + ftp->errorString() + "</font>");
-        emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + ftp->errorString());
     }
     else
     {
-        #ifdef QT_DEBUG
-            qDebug() << "Alle FTP Operationen ohne Fehler beendet!";
-        #endif
+        proxy = QNetworkProxy::NoProxy;
+    }
+    ftp->setProxy(proxy);
+
+    QString err;
+    if(!connected)
+    {
+        if(!ftp->connectToHost(ip, port, &err))
+        {
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + err + "</font>");
+            emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + err);
+            return;
+        }
+        if(!ftp->login(user, pass, &err))
+        {
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + err + "</font>");
+            emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + err);
+            return;
+        }
+        connected = true;
+    }
+
+    if(!path.isEmpty())
+    {
+        lastCdPath = path;
+        if(!ftp->cwd(path, &err))
+        {
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + err + "</font>");
+            emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + err);
+            return;
+        }
+    }
+
+    QStringList lines;
+    if(!ftp->list(QString(), &lines, &err))
+    {
+        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + err + "</font>");
+        emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + err);
+        return;
+    }
+
+    for (const QString& line : lines)
+    {
+        bool isDir = false;
+        QString name;
+        qint64 size = 0;
+        if (!parseListLine(line, &isDir, &name, &size))
+        {
+            continue;
+        }
+        if (name == "." || name == "..")
+        {
+            continue;
+        }
+
+        if (isDir)
+        {
+            if(basePath.endsWith("/"))
+            {
+                pathList.append(basePath + name);
+                emit sendLogText(baseSFDL + ": " + basePath + name + " [Verzeichnis]");
+            }
+            else
+            {
+                pathList.append(basePath + "/" + name);
+                emit sendLogText(baseSFDL + ": " + basePath + "/" + name + " [Verzeichnis]");
+            }
+        }
+        else
+        {
+            if(basePath.endsWith("/"))
+            {
+                fileList.append(basePath + name + "|" + QString::number(size));
+                emit sendLogText(baseSFDL + ": " + basePath + name + " [" + QString::number(size) + "]");
+            }
+            else
+            {
+                fileList.append(basePath + "/" + name + "|" + QString::number(size));
+                emit sendLogText(baseSFDL + ": " + basePath + "/" + name + " [" + QString::number(size) + "]");
+            }
+        }
+    }
+
+    if(!pathList.isEmpty())
+    {
+        const QStringList pending = pathList;
+        pathList.clear();
+        for(const QString& getPath : pending)
+        {
+#ifdef QT_DEBUG
+            qDebug() << "pathList: " << getPath;
+#endif
+            getFTPIndex(baseIP, basePort, baseUser, basePass, getPath);
+        }
     }
 }

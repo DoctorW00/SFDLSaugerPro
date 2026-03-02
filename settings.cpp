@@ -25,7 +25,8 @@ Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
     connect(ui->chk_unrar, SIGNAL(stateChanged(int)), this, SLOT(unrarCheckBoxes()));
     connect(ui->chk_unrar_del, SIGNAL(stateChanged(int)), this, SLOT(unrarCheckBoxes()));
 
-    ui->line_proxy_port->setValidator(new QRegExpValidator(QRegExp("^(1|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$")));
+    ui->line_proxy_port->setValidator(new QRegularExpressionValidator(
+        QRegularExpression("^(1|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$")));
 }
 
 Settings::~Settings()

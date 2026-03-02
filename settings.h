@@ -8,7 +8,8 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QStorageInfo>
-#include <QRegExp>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QSettings>
 #include <QCloseEvent>
 #include <QStringList>
