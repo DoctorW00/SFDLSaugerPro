@@ -110,7 +110,11 @@ void sfdl::readSFDL()
 
     QDomDocument sfdl;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if(!sfdl.setContent(data, QDomDocument::ParseOption::Default))
+#else
     if(!sfdl.setContent(data))
+#endif
     {
         sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht laden! (Keine XML-Daten/Datei)</font>"));
         // sendWarning(tr("SFDL Error"), tr("Kann SFDL Datei nicht laden! (Keine XML-Daten/Datei)") + "\n[" + file + "]");

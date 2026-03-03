@@ -1,4 +1,4 @@
-name: Build Linux AppImage Qt5 C++
+name: Build Linux AppImage Qt6 C++
 
 on:
   push:
@@ -14,42 +14,46 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install dependencies
+
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential ninja-build qtbase5-dev qtbase5-dev-tools \
-            libqt5multimedia5 qtmultimedia5-dev qt5-qmake libqt5core5a \
-            libqt5gui5 libqt5widgets5 libqt5multimedia5-plugins libqt5svg5-dev \
-            libqt5xml5 libgl1-mesa-dev gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-alsa \
-            wget fuse libfuse2 squashfs-tools libarchive-dev cmake git llvm \
-            gzip findutils libgcc-9-dev libgles-dev libglib2.0-dev \
-            libglib2.0-dev-bin libglvnd-dev libglx-dev --allow-downgrades
+            build-essential ninja-build \
+            libgl1-mesa-dev libgles-dev libglib2.0-dev \
+            libglib2.0-dev-bin libglvnd-dev libglx-dev \
+            libxcb-xinerama0-dev libxcb-icccm4-dev libxcb-image0-dev \
+            libxcb-keysyms1-dev libxcb-randr0-dev libxcb-render-util0-dev \
+            libxcb-xkb-dev libxkbcommon-x11-dev libfontconfig-dev \
+            libfreetype-dev libx11-dev libx11-xcb-dev libxext-dev \
+            libxfixes-dev libxi-dev libxrender-dev libxkbcommon-dev \
+            libssl-dev wget fuse libfuse2 squashfs-tools cmake git \
+            gzip findutils python3-pip --allow-downgrades
+
+      - name: Install Qt 6.10.2
+        run: |
+          pip install aqtinstall
+          aqt install-qt linux desktop 6.10.2 gcc_64 -O $HOME/Qt
+          echo "$HOME/Qt/6.10.2/gcc_64/bin" >> $GITHUB_PATH
+
       - name: Download AppImage Tools
         run: |
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
-          wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gstreamer/refs/heads/master/linuxdeploy-plugin-gstreamer.sh
           wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage linuxdeploy-plugin-gstreamer.sh
-          sudo mv linuxdeploy-plugin-gstreamer.sh /usr/local/bin/linuxdeploy-plugin-gstreamer
-      - name: Build ftplib
-        run: |
-          git clone https://github.com/DoctorW00/qtftp.git
-          cd qtftp/src/qftp
-          qmake
-          make
-          sudo make install
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+
       - name: Build unrar library
         run: |
           cd unrar
           make lib
-      - name: Build C++ with Qt5
+
+      - name: Build C++ with Qt6
         run: |
           mkdir build
           cd build
-          qmake ../
-          make
+          qmake CONFIG+=release ../
+          make -j$(nproc)
+
       - name: Create .desktop file and AppDir Structure
         run: |
           mkdir -p SFDLSaugerPro.AppDir/usr/bin
@@ -67,21 +71,18 @@ jobs:
           cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
+
       - name: Create AppImage
-        env:
-          QMAKE: /usr/lib/qt5/bin/qmake
-          EXTRA_QT_PLUGINS: multimedia
         run: |
+          export QMAKE=$HOME/Qt/6.10.2/gcc_64/bin/qmake
           ./linuxdeploy-x86_64.AppImage \
             --appdir SFDLSaugerPro.AppDir \
             --executable SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro \
             --plugin qt \
-            --plugin gstreamer \
             --output appimage
+
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro.AppImage
           path: 'SFDLSaugerPro*.AppImage'
-
-

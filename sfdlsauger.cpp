@@ -843,8 +843,8 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
     file_tbl->setColumnWidth(4, 80);   // Größe
     file_tbl->setColumnWidth(5, 88);   // Fortschrittsbalken (kompakt)
     file_tbl->setColumnWidth(6, 160);  // Status (z.B. "Download abgebrochen", "Download läuft...")
-    file_tbl->setColumnWidth(10, 95);  // Geschwindigkeit (verhindert "bytes/s"-Umbruch)
-    file_tbl->setColumnWidth(11, 55);
+    file_tbl->setColumnWidth(10, 115); // Geschwindigkeit ("1024.00 MiB/s")
+    file_tbl->setColumnWidth(11, 75);  // Zeit ("01h 05m 30s")
     file_tbl->setColumnWidth(14, 16);  // sfv check icon table
     file_tbl->resizeColumnToContents(2);
     file_tbl->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
@@ -1573,6 +1573,10 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
         }
 
         // update file time and speed
+        if (!widget2->item(nRow, 8) || !widget2->item(nRow, 9) ||
+            !widget2->item(nRow, 10) || !widget2->item(nRow, 11) || !widget2->item(nRow, 12))
+            return;
+
         qint64 timestamp = QDateTime::currentDateTime().toSecsSinceEpoch();
         qint64 start_time = widget2->item(nRow, 8)->text().toInt();
         qint64 last_time = widget2->item(nRow, 9)->text().toInt();
@@ -1624,6 +1628,9 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
 
         // status table
         QTableWidget *widget3 = widget1->findChild<QTableWidget *>("status");
+        if (!widget3 || !widget3->item(0, 6) || !widget3->item(0, 8) ||
+            !widget3->item(0, 12) || !widget3->item(0, 13) || !widget3->item(0, 16))
+            return;
 
         // qlonglong fileSize = total;                                     // actual total file size
         qlonglong t_totalSize = widget3->item(0, 6)->text().toLongLong();  // total download size (all files)
@@ -1699,10 +1706,10 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
             }
         }
         QProgressBar *mProgBar = widget1->findChild<QProgressBar *>("mProgBar");
-        mProgBar->setValue(totalProgress);
+        if (mProgBar) mProgBar->setValue(totalProgress);
 
         QLabel *statusLabel = widget1->findChild<QLabel *>("mStatusText");
-        statusLabel->setText(bytes2Human(t_sizeLoaded) + tr(" von ") + bytes2Human(t_totalSize) + tr(" geladen. (") + bytes2Human(t_mbSec) + "/s | " + seconds_to_DHMS(t_zeit) + ")");
+        if (statusLabel) statusLabel->setText(bytes2Human(t_sizeLoaded) + tr(" von ") + bytes2Human(t_totalSize) + tr(" geladen. (") + bytes2Human(t_mbSec) + "/s | " + seconds_to_DHMS(t_zeit) + ")");
     }
 }
 
@@ -1717,12 +1724,19 @@ void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statu
     QTableWidgetItem *item6 = widget2->item(nRow, 6);
     QTableWidgetItem *item7 = widget2->item(nRow, 7);
     if (!item6 || !item7) return;
+    int previousStatus = item7->text().toInt();
     item6->setText(statusMsg);
     item7->setText(QString::number(status));
 
     // terminal states: abort, done, error
     if(status == 9 || status == 10 || status == 2 || status == 3)
     {
+        // Prevent double counting if this row was already in a terminal state
+        // (stopDownload() calls this directly AND the worker emits the signal)
+        if (previousStatus == 9 || previousStatus == 10 ||
+            previousStatus == 2 || previousStatus == 3)
+            return;
+
         if (g_runningDownloads > 0)
         {
             g_runningDownloads--;

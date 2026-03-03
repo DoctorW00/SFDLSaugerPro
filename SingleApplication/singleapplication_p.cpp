@@ -35,6 +35,7 @@
 #include <QtCore/QDir>
 #include <QtCore/QProcess>
 #include <QtCore/QByteArray>
+#include <QtCore/QByteArrayView>
 #include <QtCore/QSemaphore>
 #include <QtCore/QDataStream>
 #include <QtCore/QStandardPaths>
@@ -217,7 +218,7 @@ void SingleApplicationPrivate::connectToPrimary( int msecs, ConnectionType conne
         writeStream << blockServerName.toLatin1();
         writeStream << static_cast<quint8>(connectionType);
         writeStream << instanceNumber;
-        quint16 checksum = qChecksum(initMsg.constData(), static_cast<quint32>(initMsg.length()));
+        quint16 checksum = qChecksum(QByteArrayView(initMsg));
         writeStream << checksum;
 
         // The header indicates the message length that follows
@@ -239,9 +240,9 @@ void SingleApplicationPrivate::connectToPrimary( int msecs, ConnectionType conne
 quint16 SingleApplicationPrivate::blockChecksum()
 {
     return qChecksum(
-       static_cast <const char *>( memory->data() ),
-       offsetof( InstancesInfo, checksum )
-   );
+        QByteArrayView(static_cast<const char *>(memory->data()),
+                       offsetof(InstancesInfo, checksum))
+    );
 }
 
 qint64 SingleApplicationPrivate::primaryPid()
@@ -365,7 +366,7 @@ void SingleApplicationPrivate::readInitMessageBody( QLocalSocket *sock )
     quint16 msgChecksum = 0;
     readStream >> msgChecksum;
 
-    const quint16 actualChecksum = qChecksum( msgBytes.constData(), static_cast<quint32>( msgBytes.length() - sizeof( quint16 ) ) );
+    const quint16 actualChecksum = qChecksum(QByteArrayView(msgBytes.constData(), msgBytes.length() - sizeof(quint16)));
 
     bool isValid = readStream.status() == QDataStream::Ok &&
                    QLatin1String(latin1Name) == blockServerName &&

@@ -1,4 +1,4 @@
-QT += core widgets gui network xml multimedia
+QT += core widgets gui network xml
 
 TARGET = SFDLSaugerPro
 TEMPLATE = app
@@ -77,7 +77,7 @@ win32 {
 }
 # <- unrar end
 
-CONFIG += c++17 crypto
+CONFIG += c++17
 VERSION = 1.5.1
 
 QMAKE_TARGET_COMPANY = "GrafSauger"

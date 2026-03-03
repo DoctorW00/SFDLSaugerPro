@@ -1,4 +1,5 @@
 name: Apple Silicon
+
 on:
   push:
     branches:
@@ -6,35 +7,25 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   macos:
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Install Qt5
+
+      - name: Install Qt 6.10.2
         run: |
-          brew update
-          brew install qt@5
-          brew link qt@5 --force
-      - name: Debug Qt5 Installation
-        run: |
-          echo "Checking Qt5 installation..."
-          ls -l /usr/local/opt/qt@5/bin || true
-          ls -l /opt/homebrew/opt/qt@5/bin || true
-          which qmake
-          qmake --version || true
+          pip3 install aqtinstall
+          aqt install-qt mac desktop 6.10.2 clang_64 -O $HOME/Qt
+          echo "$HOME/Qt/6.10.2/macos/bin" >> $GITHUB_PATH
+
       - name: Set up Xcode command-line tools
         run: |
           sudo xcode-select --switch /Applications/Xcode.app
           xcode-select --install || true
-      - name: Build ftplib
-        run: |
-          git clone https://github.com/DoctorW00/qtftp.git
-          cd qtftp
-          /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release || /usr/local/opt/qt@5/bin/qmake CONFIG+=release
-          make
-          sudo make install
+
       - name: Build unrar library
         run: |
           cd unrar
@@ -42,6 +33,7 @@ jobs:
           make lib CXXFLAGS="-arch arm64"
           mv libunrar.so libunrar.dylib
           ls -la
+
       - name: Create entitlements.plist
         run: |
           cat > entitlements.plist << EOF
@@ -70,15 +62,18 @@ jobs:
           EOF
           cat entitlements.plist
           plutil -lint entitlements.plist || { echo "entitlements.plist is invalid"; exit 1; }
-      - name: Build C++ with Qt5
+
+      - name: Build C++ with Qt6
         run: |
           mkdir build
           cd build
-          /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
+          qmake ../ CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
+
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
+          macdeployqt build/SFDLSaugerPro.app -verbose=2
+
       - name: Create Info.plist
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
@@ -102,7 +97,7 @@ jobs:
               <key>CFBundleSignature</key>
               <string>????</string>
               <key>LSMinimumSystemVersion</key>
-              <string>10.13</string>
+              <string>11.0</string>
               <key>NSDocumentsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
@@ -112,11 +107,13 @@ jobs:
           </dict>
           </plist>
           EOF
+
       - name: Copy unrar lib to SFDLSaugerPro.app
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
           cp unrar/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.dylib
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
@@ -127,13 +124,14 @@ jobs:
           fi
           codesign --force --sign "-" --entitlements entitlements.plist --timestamp=none build/SFDLSaugerPro.app
           codesign -vvv --deep --strict build/SFDLSaugerPro.app
+
       - name: Create DMG package
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
+
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
           path: build/SFDLSaugerPro.dmg
-
