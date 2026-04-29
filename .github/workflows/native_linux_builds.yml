@@ -68,17 +68,13 @@ jobs:
           overrides:
             deb: # Debian / Ubuntu / Mint
               depends:
-                - libqt5core5a
-                - libqt5gui5
-                - libqt5widgets5
                 - libqt5multimedia5
                 - libqt5svg5
                 - libqt5xml5
                 - libgl1
                 - gstreamer1.0-plugins-base
                 - gstreamer1.0-plugins-good
-                - gstreamer1.0-pulseaudio
-            rpm: # Fedora / CentOS
+            rpm: # Fedora / CentOS / RHEL
               depends:
                 - qt5-qtbase
                 - qt5-qtmultimedia
@@ -87,12 +83,11 @@ jobs:
                 - mesa-libGL
                 - gstreamer1-plugins-base
                 - gstreamer1-plugins-good
-            archlinux: # Arch / Manjaro
+            archlinux: # Arch / Manjaro / Endeavour
               depends:
                 - qt5-base
                 - qt5-multimedia
                 - qt5-svg
-                - qt5-xml
                 - libgl
                 - gst-plugins-base
                 - gst-plugins-good
