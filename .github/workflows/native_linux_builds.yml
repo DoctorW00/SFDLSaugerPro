@@ -1,0 +1,115 @@
+name: Build Native Linux Packages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-packages:
+    name: Build Native Packages (${{ matrix.arch }})
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        # Erstellt Pakete für x86_64 (amd64) und ARM64
+        arch: [amd64, arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential qtbase5-dev qtmultimedia5-dev libqt5svg5-dev libarchive-dev cmake git
+
+      - name: Build Libraries & App
+        run: |
+          git clone https://github.com/DoctorW00/qtftp.git
+          cd qtftp/src/qftp && qmake && make && sudo make install
+          cd ../../../
+          cd unrar && make lib && cd ..
+          mkdir build && cd build && qmake ../ && make
+
+      - name: Prepare Package Structure
+        run: |
+          mkdir -p pkg/usr/bin pkg/usr/lib pkg/usr/share/applications pkg/usr/share/icons/hicolor/512x512/apps
+          cp build/SFDLSaugerPro pkg/usr/bin/
+          cp unrar/libunrar.so pkg/usr/lib/
+          cp icon.png pkg/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
+          cat << EOF > pkg/usr/share/applications/SFDLSaugerPro.desktop
+          [Desktop Entry]
+          Name=SFDLSaugerPro
+          Exec=/usr/bin/SFDLSaugerPro
+          Icon=SFDLSaugerPro
+          Type=Application
+          Categories=Utility;
+          EOF
+
+      - name: Create nfpm.yaml
+        run: |
+          cat << EOF > nfpm.yaml
+          name: "sfdlsaugerpro"
+          arch: "${{ matrix.arch }}"
+          platform: "linux"
+          version: "1.0.0"
+          section: "utils"
+          priority: "optional"
+          maintainer: "GrafSauger <graf@sauger.local>"
+          description: "SFDL Download Manager"
+          license: "GPL-3.0"
+          contents:
+            - src: "pkg/usr/bin/SFDLSaugerPro"
+              dst: "/usr/bin/SFDLSaugerPro"
+            - src: "pkg/usr/lib/libunrar.so"
+              dst: "/usr/lib/libunrar.so"
+            - src: "pkg/usr/share/applications/SFDLSaugerPro.desktop"
+              dst: "/usr/share/applications/SFDLSaugerPro.desktop"
+            - src: "pkg/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png"
+              dst: "/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png"
+          overrides:
+            deb: # Debian / Ubuntu / Mint
+              depends:
+                - libqt5core5a
+                - libqt5gui5
+                - libqt5widgets5
+                - libqt5multimedia5
+                - libqt5svg5
+                - libqt5xml5
+                - libgl1
+                - gstreamer1.0-plugins-base
+                - gstreamer1.0-plugins-good
+                - gstreamer1.0-pulseaudio
+            rpm: # Fedora / CentOS
+              depends:
+                - qt5-qtbase
+                - qt5-qtmultimedia
+                - qt5-qtsvg
+                - qt5-qtxml
+                - mesa-libGL
+                - gstreamer1-plugins-base
+                - gstreamer1-plugins-good
+            archlinux: # Arch / Manjaro
+              depends:
+                - qt5-base
+                - qt5-multimedia
+                - qt5-svg
+                - qt5-xml
+                - libgl
+                - gst-plugins-base
+                - gst-plugins-good
+          EOF
+
+      - name: Build all formats with NFPM
+        uses: burningalchemist/action-gh-nfpm@v1
+        with:
+          config: nfpm.yaml
+          packager: deb,rpm,archlinux
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-packages-${{ matrix.arch }}
+          path: |
+            *.deb
+            *.rpm
+            *.pkg.tar.zst
