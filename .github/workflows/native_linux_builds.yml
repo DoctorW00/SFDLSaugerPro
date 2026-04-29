@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        # Erstellt Pakete für x86_64 (amd64) und ARM64
         arch: [amd64, arm64]
 
     steps:
@@ -99,11 +98,18 @@ jobs:
                 - gst-plugins-good
           EOF
 
+      - name: Install NFPM directly
+        run: |
+          echo 'deb [trusted=yes] https://goreleaser.com /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt-get update
+          sudo apt-get install -y nfpm
+
       - name: Build all formats with NFPM
-        uses: burningalchemist/action-gh-nfpm@v1
-        with:
-          config: nfpm.yaml
-          packager: deb,rpm,archlinux
+        run: |
+          # Wir führen nfpm manuell für jedes Format aus
+          nfpm pkg --packager deb
+          nfpm pkg --packager rpm
+          nfpm pkg --packager archlinux
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -113,3 +119,5 @@ jobs:
             *.deb
             *.rpm
             *.pkg.tar.zst
+
+
