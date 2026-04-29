@@ -48,26 +48,26 @@ FTPDownload::FTPDownload(QStringList data) : data(data)
             proxy.setUser(proxyUser);
             proxy.setPassword(proxyPass);
         }
-
-        QNetworkProxy::setApplicationProxy(proxy);
     }
     mutex.unlock();
 }
 
-FTPDownload::~FTPDownload()
-{
-    if(_abort == false)
-    {
-        delete ftp;
-        delete file;
-    }
-}
+FTPDownload::~FTPDownload(){}
 
 void FTPDownload::abort()
 {
     mutex.lock();
     _abort = true;
     _working = false;
+
+    if(ftp)
+    {
+        ftp->abort();
+    }
+    if(ftpLoop)
+    {
+        ftpLoop->quit();
+    }
     mutex.unlock();
 }
 
@@ -80,23 +80,24 @@ void FTPDownload::finishedDownload()
 
 void FTPDownload::process()
 {
+    if(!proxy.hostName().isEmpty() && proxy.port() > 0)
+    {
+        QNetworkProxy::setApplicationProxy(proxy);
+    }
+
     emit statusUpdateFile(id, _tableRow, tr("Wird geladen ..."), 1);
 
     mutex.lock();
     _working = true;
     mutex.unlock();
 
-    // mutex.lock();
-
-    ftpLoop = new QEventLoop(this);
-    ftp = new QFtp(this);
-    // ftp->setObjectName(id);
+    ftpLoop = new QEventLoop();
+    ftp = new QFtp();
 
     connect(ftp, SIGNAL(done(bool)), this, SLOT(isDone(bool)));
     connect(ftp, SIGNAL(dataTransferProgress(qint64,qint64)), this, SLOT(updateProgress(qint64, qint64)));
 
-    file = new QFile(this);
-    // make sure paths are working cross platform
+    file = new QFile();
     file->setFileName(QDir::toNativeSeparators(QDir::cleanPath(dlpath + "/" + dlfile)));
 
     if(file->size())
@@ -134,8 +135,11 @@ void FTPDownload::process()
 
     file->flush();
     file->close();
-
-    // mutex.unlock();
+    delete file;
+    file = nullptr;
+    delete ftp;
+    delete ftpLoop;
+    ftpLoop = nullptr;
 }
 
 void FTPDownload::isDone(bool)

@@ -3,49 +3,7 @@
 
 #pragma once
 #include <QMetaType>
-
-/*
-struct gsIrcServerInfo
-{
-    QString displayName;
-    QString hostname;
-    int     port = 6667;
-    bool    ssl  = false;
-    QString nick = "Nick";
-    QString user = "User";
-    QString real = "RealName";
-    QString password = "";
-    QString defaultChannel = "";
-    bool operator==(const gsIrcServerInfo& other) const
-    {
-        return displayName == other.displayName &&
-               hostname    == other.hostname &&
-               port        == other.port &&
-               ssl         == other.ssl;
-    }
-};
-Q_DECLARE_METATYPE(gsIrcServerInfo)
-
-struct gsSocks5ProxyInfo
-{
-    QString  displayName;
-    QString  host;
-    quint16  port;
-    QString  user;
-    QString  password;
-
-    bool operator==(const gsSocks5ProxyInfo& other) const
-    {
-        return displayName == other.displayName &&
-               host        == other.host &&
-               port        == other.port &&
-               user        == other.user &&
-               password    == other.password;
-    }
-    bool operator!=(const gsSocks5ProxyInfo& other) const { return !(*this == other); }
-};
-Q_DECLARE_METATYPE(gsSocks5ProxyInfo)
-*/
+#include <QObject>
 
 struct gsIrcServerInfo
 {
@@ -192,6 +150,9 @@ private slots:
     void setupProxyComboBox();
     void on_selectIRCProxy_currentIndexChanged(int index);
     void appendDebugMessage(const QString& text);
+
+signals:
+    void sendLogText(QString text);
 
 private:
     static const QVector<gsIrcServerInfo>& predefinedServers();

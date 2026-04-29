@@ -27,5 +27,6 @@
         <file>gfx/irc.png</file>
         <file>gfx/splitter2.png</file>
         <file>gfx/reformator.png</file>
+        <file>snd/done.wav</file>
     </qresource>
 </RCC>

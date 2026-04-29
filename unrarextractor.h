@@ -46,6 +46,7 @@ private:
     QString DestPath;
     QMutex mutex;
     QStringList data;
+    qint64 lastUpdateTimestamp = 0;
 };
 
 #endif // UNRAREXTRACTOR_H

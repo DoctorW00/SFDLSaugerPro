@@ -21,15 +21,14 @@ class FTPDownload : public QObject
 public:
     FTPDownload(QStringList data);
     ~FTPDownload();
-    void abort();
     bool _abort;
     bool _working;
     int _tableRow = -1;
     QString _id;
-    QFtp *ftp;
 
 public slots:
     void process();
+    void abort();
 
 private slots:
     void isDone(bool);
@@ -43,6 +42,7 @@ signals:
     void doProgress(QString id, int tableRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate);
 
 private:
+    QFtp *ftp;
     QStringList data;
     QFile *file;
     QEventLoop *ftpLoop;

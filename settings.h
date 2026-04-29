@@ -18,6 +18,8 @@
     #include <QDebug>
 #endif
 
+
+
 namespace Ui
 {
     class Settings;
@@ -46,6 +48,7 @@ public:
     QString _ftpProxyUser;
     QString _ftpProxyPass;
     QStringList _excludeFilesFromDownload;
+    bool _play_sound_finish = false;
 
 private slots:
     QString bytes2Human(float filesize);

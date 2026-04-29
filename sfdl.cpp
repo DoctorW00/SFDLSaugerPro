@@ -304,66 +304,6 @@ void sfdl::readSFDL()
                 n_data[i] = dataContent;
             }
         }
-
-        /*
-        if(ipTest != "__fail__to__decrypt__" && !ipTest.isEmpty())
-        {
-            if(validateIPv4(ipTest))
-            {
-                ipTextOK = true;
-
-                sendLogText(file + tr(": Erfogreich mit Passwort <b>") + sfdlPassword + tr("</b> entschlüsselt."));
-
-                for(int i = 0; i < n_data.count(); i++)
-                {
-                    QString dataInfo = n_data.at(i).split("|").at(0);
-                    QString dataContent;
-
-                    if(dataInfo == "Host" ||
-                            dataInfo == "Username" ||
-                            dataInfo == "Password" ||
-                            dataInfo == "Uploader" ||
-                            dataInfo == "Description" ||
-                            dataInfo == "DefaultPath")
-                    {
-                        QString dec = decryptString(sfdlPassword, n_data.at(i).split("|").at(1));
-
-                        if(n_data.at(i).split("|").at(0) == "Host")
-                        {
-                            Host = dec;
-                        }
-
-                        if(n_data.at(i).split("|").at(0) == "Port")
-                        {
-                            Port = dec.toInt();
-                        }
-
-                        if(n_data.at(i).split("|").at(0) == "Username")
-                        {
-                            Username = dec;
-                        }
-
-                        if(n_data.at(i).split("|").at(0) == "Password")
-                        {
-                            Password = dec;
-                        }
-
-                        dataContent = n_data.at(i).split("|").at(0) + "|" + dec;
-                        n_data[i] = dataContent;
-                    }
-                }
-            }          
-        }
-        */
-
-        /*
-        if(!ipTextOK)
-        {
-            sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort: ") + sfdlPassword + ")</font>");
-            // sendWarning(tr("SFDL Error"), tr("Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort)") + "\n[" + file + "]");
-            return;
-        }
-        */
     }
 
     QDomNodeList Packages = root.elementsByTagName("Packages");
@@ -481,4 +421,5 @@ void sfdl::readSFDL()
     }
 
     emit sendSFDLData(n_data, n_files);
+    emit finished();
 }

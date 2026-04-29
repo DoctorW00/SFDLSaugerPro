@@ -42,6 +42,7 @@ signals:
     void sendSFDLData(QStringList data, QStringList files);
     void sendWarning(QString label, QString text);
     void sendLogText(QString text);
+    void finished();
 
 };
 

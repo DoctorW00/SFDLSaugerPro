@@ -5,12 +5,12 @@ FTPListFiles::FTPListFiles(QObject *parent) : QObject(parent) {}
 // ftp action
 void FTPListFiles::setFTP()
 {
-    loop = new QEventLoop(this);
+    loop = new QEventLoop();
 
-    timer = new QTimer(this);
+    timer = new QTimer();
     connect(timer, SIGNAL(timeout()), this, SLOT(ftpTimeout()));
 
-    ftp = new QFtp(this);
+    ftp = new QFtp();
     ftp->setTransferMode(QFtp::Passive);
 
     connect(ftp, SIGNAL(listInfo(QUrlInfo)), this, SLOT(doListInfo(QUrlInfo)));
@@ -41,6 +41,8 @@ void FTPListFiles::ftpTimeout()
     emit sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
 
     delete ftp;
+    delete loop;
+    delete timer;
     setFTP();
 }
 
@@ -136,6 +138,7 @@ void FTPListFiles::ftpCommandFinished(int commandId, bool error)
         default:                    commandName = "Unbekannter Befehl (" + QString::number(cmd) + ")"; break;
     }
 
+    #ifdef QT_DEBUG
     if(error)
     {
         emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP-Fehler bei %1 (ID %2): %3</font>")
@@ -147,6 +150,7 @@ void FTPListFiles::ftpCommandFinished(int commandId, bool error)
     {
         emit sendLogText(baseSFDL + tr(": %1 erfolgreich (ID %2)").arg(commandName).arg(commandId));
     }
+    #endif
 }
 
 void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
@@ -189,7 +193,6 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
     baseUser = user;
     basePass = pass;
     basePath = path;
-    // baseSFDL = SFDL;
 
     lastCdPath = path;
 
@@ -197,29 +200,21 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
 
     getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
 
-    // return fileList;
-
     emit sendFTPData(data, fileList);
 }
 
 void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path)
 {
     basePath = path;
-
     emit sendLogText(baseSFDL + tr(": Lade Inhalt von Pfad: ") + basePath);
 
-    // setup ftp connects
     setFTP();
 
-    timer = new QTimer(this);
-    timer->setSingleShot(1);
-    // connect(timer, SIGNAL(timeout()), this, SLOT(ftpTimeout()));
-    timer->start(60);
+    timer->setSingleShot(true);
+    timer->start(30000);
 
-    loop = new QEventLoop(this);
     loop->connect(ftp, SIGNAL(done(bool)), loop, SLOT(quit()));
 
-    // connect to ftp server
     ftp->connectToHost(ip, port);
     ftp->login(user, pass);
     if(!path.isEmpty())
@@ -227,26 +222,21 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
         lastCdPath = path;
         ftp->cd(path);
     }
-
     ftp->list();
 
     loop->exec();
+
     ftp->close();
+    delete ftp;
+    delete timer;
+    delete loop;
+    ftp = nullptr;
+    timer = nullptr;
+    loop = nullptr;
 
-    if(timer->isActive())
+    while(!pathList.isEmpty())
     {
-        timer->stop();
-    }
-
-    for(int i = 0; i < pathList.count(); i++)
-    { 
-        #ifdef QT_DEBUG
-            qDebug() << "pathList: " << pathList.at(i);
-        #endif
-
-        QString getPath = pathList.at(i);
-        pathList.removeAt(i);
-
+        QString getPath = pathList.takeFirst();
         getFTPIndex(baseIP, basePort, baseUser, basePass, getPath);
     }
 }

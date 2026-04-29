@@ -1,14 +1,13 @@
 #ifndef SFDLSAUGER_H
 #define SFDLSAUGER_H
 
-#include "sfdl.h"
 #include "data.h"
-#include "ftplistfiles.h"
 #include "ftpdownload.h"
 #include "livelogs.h"
 #include "about.h"
 #include "settings.h"
 #include "chatirc.h"
+#include <QSoundEffect>
 
 inline void registerMetaTypes()
 {
@@ -66,9 +65,6 @@ private slots:
     void MsgWarning(QString label, QString text);
     QString bytes2Human(float filesize);
     QString seconds_to_DHMS(int duration);
-    void dragEnterEvent(QDragEnterEvent *e);
-    void dropEvent(QDropEvent *e);
-    void closeEvent(QCloseEvent *e);
     void quitApp();
     void on_action_ffnen_triggered();
     void on_actionBeenden_triggered();
@@ -122,6 +118,9 @@ private slots:
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *e) override;
+    void dropEvent(QDropEvent *e) override;
+    void closeEvent(QCloseEvent *e) override;
 
 signals:
     void logAdded(const QString& htmlLine);
@@ -163,6 +162,9 @@ private:
 
     // ftp clients
     QString g_FILEZILLA;
+
+    // sounds
+    QSoundEffect *finishSound;
 
 };
 

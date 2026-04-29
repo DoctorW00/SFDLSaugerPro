@@ -1,3 +1,5 @@
+#include "sfdl.h"
+#include "ftplistfiles.h"
 #include "sfdlsauger.h"
 #include "ui_sfdlsauger.h"
 
@@ -12,12 +14,18 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
     infoWindow = new About(this);
     settingsWindow = new Settings(this);
 
+    // sounds
+    finishSound = new QSoundEffect(this);
+    finishSound->setSource(QUrl::fromLocalFile(":/snd/done.wav"));
+    finishSound->setVolume(0.9f);
+
     // irc chat
     ircChatWindow = new chatIRC();
     ircChatWindow->setWindowTitle("IRC Chat");
     ircChatWindow->setObjectName("IRCChat");
     ircChatWindow->setWindowFlags(ircChatWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
     ircChatWindow->setSizeGripEnabled(true);
+    connect(ircChatWindow, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
 
     // logs
     ui->textEdit->installEventFilter(this);
@@ -315,17 +323,16 @@ void SFDLSauger::loadSFDL(QString file)
     auto sfdlFile = new sfdl();
     auto thread = new QThread;
 
-    // connect(sfdlFile, SIGNAL(sendSFDLData(QStringList,QStringList)), this, SLOT(getSFDLData(QStringList,QStringList)));
+    sfdlFile->setSFDL(file, settingsWindow->_sfdlPasswords);
+    sfdlFile->moveToThread(thread);
+
     connect(sfdlFile, SIGNAL(sendSFDLData(QStringList,QStringList)), this, SLOT(chkSFDLData(QStringList,QStringList)));
     connect(sfdlFile, SIGNAL(sendWarning(QString,QString)), this, SLOT(MsgWarning(QString,QString)));
     connect(sfdlFile, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
-    connect(thread, SIGNAL(started()), sfdlFile, SLOT(readSFDL()));
-    connect(thread, SIGNAL(finished()), thread, SLOT(quit()));
-    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
-
-    // sfdlFile->readSFDL(file);
-    sfdlFile->setSFDL(file, settingsWindow->_sfdlPasswords);
-    sfdlFile->moveToThread(thread);
+    connect(thread, &QThread::started, sfdlFile, &sfdl::readSFDL);
+    connect(sfdlFile, &sfdl::finished, thread, &QThread::quit);
+    connect(sfdlFile, &QObject::destroyed, thread, &QObject::deleteLater);
+    connect(thread, &QThread::finished, sfdlFile, &QObject::deleteLater);
 
     thread->start();
 }
@@ -602,6 +609,8 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         data_tbl->hideRow(10);
         data_tbl->hideRow(21);
     }
+
+    data_tbl->setHidden(1);
 
     // file table
     int fileColumCount = 16;
@@ -1176,12 +1185,6 @@ QString SFDLSauger::checkSameDownloads(QString name)
     for(int i = 0; i < ui->tabWidget->count(); i++)
     {
         QString id = ui->tabWidget->tabToolTip(i);
-        /*
-        if(id.split(QRegExp("\\([0-9]+\\)")).at(0) == name)
-        {
-            dblEntry++;
-        }
-        */
         if(id.split(QRegularExpression("\\([0-9]+\\)")).at(0) == name)
         {
             dblEntry++;
@@ -1217,20 +1220,29 @@ void SFDLSauger::stopDownload()
     int tabIndex = ui->tabWidget->currentIndex();
     QString id = ui->tabWidget->tabToolTip(tabIndex);
 
-    foreach(FTPDownload* w, g_Worker)
+    QMutableListIterator<FTPDownload*> it(g_Worker);
+    while (it.hasNext())
     {
-        if(w->_working && id == w->_id && w->thread()->isRunning())
-        {
-            updateDownloadFileStatus(id, w->_tableRow, tr("User Abbruch!"), 9);
+        FTPDownload* w = it.next();
 
-            w->ftp->abort();
-            w->ftp->thread()->quit();
-            w->ftp->thread()->wait();
-            w->ftp->deleteLater();
-            w->abort();
-            w->thread()->quit();
-            w->thread()->wait();
-            w->deleteLater();
+        if(!w)
+        {
+            it.remove();
+            continue;
+        }
+
+        if(id == w->_id && w->thread() && w->thread()->isRunning())
+        {
+            if(w->_working)
+            {
+                updateDownloadFileStatus(id, w->_tableRow, tr("User Abbruch!"), 9);
+                QMetaObject::invokeMethod(w, "abort", Qt::QueuedConnection);
+            }
+        }
+
+        if(!w->_working)
+        {
+            it.remove();
         }
     }
 
@@ -1299,7 +1311,7 @@ void SFDLSauger::downloadError(QString error)
 
 QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
 {
-    QStringList parts = fullPath.split('/', QString::SkipEmptyParts);
+    QStringList parts = fullPath.split('/', Qt::SkipEmptyParts);
 
     int index = parts.indexOf(splitter);
 
@@ -1319,7 +1331,7 @@ QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
 
 QString SFDLSauger::removeDuplicateSlashes(QString path)
 {
-    QStringList parts = path.split('/', QString::SkipEmptyParts);
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
     return parts.join('/');
 }
 
@@ -1367,8 +1379,8 @@ void SFDLSauger::startDownload(QString tabID = "")
                 break;
             }
 
-            if(widget3->item(i, 0)->checkState() == Qt::Checked &&
-                    widget3->item(i, 7)->text().toInt() == 0 ||
+            if((widget3->item(i, 0)->checkState() == Qt::Checked &&
+                    widget3->item(i, 7)->text().toInt() == 0) ||
                     widget3->item(i, 7)->text().toInt() == 9 ||
                     widget3->item(i, 7)->text().toInt() == 3 // unknown error (ftp)
                     )
@@ -1442,7 +1454,7 @@ void SFDLSauger::startDownload(QString tabID = "")
 }
 
 // update progress on downloads
-void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime = false, bool firstUpdate = false)
+void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate)
 {
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
@@ -1453,156 +1465,97 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
         read += resume;
     }
 
-    qint64 lastUpdateTime = QDateTime::currentDateTime().toMSecsSinceEpoch();
-    if((lastUpdateTime - g_lastProgressUpdate) >= 250 || total <= read || overwriteTime)
+    qint64 currentMSecs = QDateTime::currentMSecsSinceEpoch();
+
+    if((currentMSecs - g_lastProgressUpdate) >= 250 || total <= read || overwriteTime)
     {
-        g_lastProgressUpdate = lastUpdateTime;
+        g_lastProgressUpdate = currentMSecs;
 
-        int progress;
+        int progress = (total > 0) ? static_cast<int>((read * 100) / total) : 0;
+        if(progress > 100) progress = 100;
 
-        // divide by zero?
-        if(total < 100)
-        {
-           progress = 100;
-        }
-        else
-        {
-            progress = read/(total/100);
-        }
-
-        // txt files on *nix systems vs windows real size issue
-        if(progress > 100)
-        {
-            progress = 100;
-        }
-
-        // progressbar update
         QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(nRow));
-        PROGBAR->setValue(progress);
+        if(PROGBAR) PROGBAR->setValue(progress);
 
-        // update file time and speed
-        qint64 timestamp = QDateTime::currentDateTime().toTime_t();
-        qint64 start_time = widget2->item(nRow, 8)->text().toInt();
-        qint64 last_time = widget2->item(nRow, 9)->text().toInt();
-        qint64 zeit = 0;
+        qint64 start_time_ms = widget2->item(nRow, 8)->text().toLongLong();
+        qint64 zeit_s = 0;
         qint64 mbSec = 0;
 
-        if(!start_time)
+        if(start_time_ms == 0)
         {
-            widget2->item(nRow, 8)->setText(QString::number(timestamp)); // start time
-            widget2->item(nRow, 9)->setText(QString::number(timestamp)); // last time
+            widget2->item(nRow, 8)->setText(QString::number(currentMSecs));
+            widget2->item(nRow, 9)->setText(QString::number(currentMSecs));
         }
         else
         {
-            widget2->item(nRow, 9)->setText(QString::number(timestamp)); // last time
+            widget2->item(nRow, 9)->setText(QString::number(currentMSecs));
 
-            zeit = timestamp - start_time;
-            if(!zeit)
-            {
-                zeit = 1;
-            }
+            qint64 diff_ms = currentMSecs - start_time_ms;
+            zeit_s = diff_ms / 1000;
 
-            if(!last_time)
-            {
-                last_time = 1;
-            }
+            if(diff_ms < 1) diff_ms = 1;
 
-            if(resume && !firstUpdate)
-            {
-                mbSec = (read - resume)/zeit;
-            }
-            else
-            {
-                mbSec = read/zeit;
-            }
+            qint64 bytesSinceStart = (resume && !firstUpdate) ? (read - resume) : read;
+            mbSec = (bytesSinceStart * 1000) / diff_ms;
         }
 
-        if(overwriteTime)
-        {
-            mbSec = 0;
-            zeit = 0;
-        }
+        if(overwriteTime) { mbSec = 0; zeit_s = 0; }
 
         widget2->item(nRow, 10)->setText(bytes2Human(mbSec) + "/s");
-        widget2->item(nRow, 11)->setText(seconds_to_DHMS(zeit));
+        widget2->item(nRow, 11)->setText(seconds_to_DHMS(zeit_s)); // Jetzt korrekte Sekunden
 
-        qlonglong lastReadData = widget2->item(nRow, 12)->text().toLongLong(); // get last read data
-
+        qlonglong lastReadData = widget2->item(nRow, 12)->text().toLongLong();
         widget2->item(nRow, 12)->setText(QString::number(read));
 
-        // status table
         QTableWidget *widget3 = widget1->findChild<QTableWidget *>("status");
-
-        // qlonglong fileSize = total;                                     // actual total file size
-        qlonglong t_totalSize = widget3->item(0, 6)->text().toLongLong();  // total download size (all files)
-        qlonglong t_sizeLoaded = widget3->item(0, 8)->text().toLongLong(); // total download (all files) yet loaded
+        qlonglong t_totalSize = widget3->item(0, 6)->text().toLongLong();
+        qlonglong t_sizeLoaded = widget3->item(0, 8)->text().toLongLong();
 
         t_sizeLoaded += (read - lastReadData);
+        if(firstUpdate) t_sizeLoaded += read;
 
-        if(firstUpdate)
+        qlonglong t_startTime_ms = widget3->item(0, 12)->text().toLongLong();
+        qlonglong t_stopTime_ms = widget3->item(0, 16)->text().toLongLong();
+        qint64 t_zeit_s = 0;
+        qint64 t_mbSec = 0;
+
+        if(t_startTime_ms == 0)
         {
-            t_sizeLoaded += read;
-        }
-
-        qlonglong t_startTime = widget3->item(0, 12)->text().toLongLong();
-        qlonglong t_lastTime = widget3->item(0, 13)->text().toLongLong();
-        qlonglong t_stopTime = widget3->item(0, 16)->text().toLongLong();
-
-        qlonglong t_zeit = 0;
-        qlonglong t_mbSec = 0;
-
-        if(!t_startTime)
-        {
-            widget3->item(0, 12)->setText(QString::number(timestamp)); // start time
-            widget3->item(0, 13)->setText(QString::number(timestamp)); // last time
+            widget3->item(0, 12)->setText(QString::number(currentMSecs));
+            widget3->item(0, 13)->setText(QString::number(currentMSecs));
         }
         else
         {
-            widget3->item(0, 13)->setText(QString::number(timestamp)); // last time
+            widget3->item(0, 13)->setText(QString::number(currentMSecs));
+            qint64 t_diff_ms = currentMSecs - t_startTime_ms;
 
-            if(t_stopTime)
+            if(t_stopTime_ms > 0)
             {
-                t_zeit = t_stopTime;
-
+                t_diff_ms = t_stopTime_ms;
                 widget3->item(0, 16)->setText("0");
-                widget3->item(0, 12)->setText(QString::number(timestamp - t_stopTime)); // start time
-            }
-            else
-            {
-                t_zeit = timestamp - t_startTime;
+                widget3->item(0, 12)->setText(QString::number(currentMSecs - t_stopTime_ms));
             }
 
-            if(!t_zeit)
-            {
-                t_zeit = 1;
-            }
-
-            if(!t_lastTime)
-            {
-                t_lastTime = 1;
-            }
-
-            t_mbSec = t_sizeLoaded/t_zeit;
+            if(t_diff_ms < 1) t_diff_ms = 1;
+            t_zeit_s = t_diff_ms / 1000;
+            t_mbSec = (t_sizeLoaded * 1000) / t_diff_ms;
         }
 
-        if(overwriteTime)
-        {
-            t_mbSec = 0;
-            t_zeit = 0;
-        }
+        if(overwriteTime) { t_mbSec = 0; t_zeit_s = 0; }
 
         widget3->item(0, 8)->setText(QString::number(t_sizeLoaded));
         widget3->item(0, 9)->setText(bytes2Human(t_sizeLoaded));
         widget3->item(0, 14)->setText(bytes2Human(t_mbSec) + "/s");
-        widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit));
+        widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit_s));
 
-        // set main progress bar
-        qlonglong totalProgress = t_sizeLoaded/(t_totalSize/100);
-        QProgressBar *mProgBar = widget1->findChild<QProgressBar *>("mProgBar");
-        mProgBar->setValue(totalProgress);
+        if(t_totalSize > 0)
+        {
+            qlonglong totalProgress = (t_sizeLoaded * 100) / t_totalSize;
+            widget1->findChild<QProgressBar *>("mProgBar")->setValue(static_cast<int>(totalProgress));
+        }
 
         QLabel *statusLabel = widget1->findChild<QLabel *>("mStatusText");
-        statusLabel->setText(bytes2Human(t_sizeLoaded) + tr(" von ") + bytes2Human(t_totalSize) + tr(" geladen. (") + bytes2Human(t_mbSec) + "/s | " + seconds_to_DHMS(t_zeit) + ")");
+        statusLabel->setText(bytes2Human(t_sizeLoaded) + tr(" von ") + bytes2Human(t_totalSize) + tr(" geladen. (") + bytes2Human(t_mbSec) + "/s | " + seconds_to_DHMS(t_zeit_s) + ")");
     }
 }
 
@@ -1614,6 +1567,7 @@ void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statu
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
 
     widget2->item(nRow, 6)->setText(statusMsg);
+    widget2->item(nRow, 6)->setToolTip(statusMsg);
     widget2->item(nRow, 7)->setText(QString::number(status));
 
     // abort
@@ -1690,6 +1644,12 @@ bool SFDLSauger::allDownloadsDone(QString id)
                 return false;
             }
         }
+    }
+
+    // all dwonloads done sound
+    if(settingsWindow->_play_sound_finish)
+    {
+        finishSound->play();
     }
 
     return true;
@@ -2287,11 +2247,19 @@ void SFDLSauger::openInFileZilla()
         {
             if(t_path.isEmpty() || widget2->rowCount() != 23)
             {
-                QProcess::startDetached("\"" + g_FILEZILLA + "\" \"ftp://" + t_user + ":" + t_pass + "@" + t_host + ":" + t_port + "\"");
+                // QProcess::startDetached("\"" + g_FILEZILLA + "\" \"ftp://" + t_user + ":" + t_pass + "@" + t_host + ":" + t_port + "\"");
+                QString program = g_FILEZILLA;
+                QStringList arguments;
+                arguments << "ftp://" + t_user + ":" + t_pass + "@" + t_host + ":" + t_port;
+                QProcess::startDetached(program, arguments);
             }
             else
             {
-                QProcess::startDetached("\"" + g_FILEZILLA + "\" \"ftp://" + t_user + ":" + t_pass + "@" + t_host + ":" + t_port + t_path + "\"");
+                // QProcess::startDetached("\"" + g_FILEZILLA + "\" \"ftp://" + t_user + ":" + t_pass + "@" + t_host + ":" + t_port + t_path + "\"");
+                QString program = g_FILEZILLA;
+                QStringList arguments;
+                arguments << "ftp://" + t_user + ":" + t_pass + "@" + t_host + ":" + t_port + t_path;
+                QProcess::startDetached(program, arguments);
             }
         }
     }
@@ -2359,11 +2327,18 @@ void SFDLSauger::showLogMenu(const QPoint &pos)
 
 void SFDLSauger::openLogsDialog()
 {
-    if(logsWindow && logsWindow->isVisible())
+    if(logsWindow)
     {
-        logsWindow->raise();
-        logsWindow->activateWindow();
-        return;
+        if(logsWindow->isVisible())
+        {
+            logsWindow->raise();
+            logsWindow->activateWindow();
+            return;
+        }
+    }
+    else
+    {
+        logsWindow = new LiveLogs(this);
     }
 
     logsWindow->setWindowTitle("Logs");
@@ -2375,11 +2350,18 @@ void SFDLSauger::openLogsDialog()
 
 void SFDLSauger::openIRCDialog()
 {
-    if(ircChatWindow && ircChatWindow->isVisible())
+    if(ircChatWindow)
     {
-        ircChatWindow->raise();
-        ircChatWindow->activateWindow();
-        return;
+        if(ircChatWindow->isVisible())
+        {
+            ircChatWindow->raise();
+            ircChatWindow->activateWindow();
+            return;
+        }
+    }
+    else
+    {
+        ircChatWindow = new chatIRC(this);
     }
 
     ircChatWindow->setWindowTitle("IRC Chat (" + QString(APP_PRODUCT) + " v" + QString(APP_VERSION) + ")");

@@ -37,15 +37,32 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>0</y>
+        <y>-111</y>
         <width>666</width>
-        <height>430</height>
+        <height>467</height>
        </rect>
       </property>
       <attribute name="label">
        <string>Allgemein</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
+       <item row="15" column="1">
+        <widget class="QCheckBox" name="chk_use_internal_unrar">
+         <property name="text">
+          <string>Benutze integriertes UnRAR</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="1">
+        <widget class="QCheckBox" name="chk_flatDownloads">
+         <property name="text">
+          <string>Keine Unterordner erstellen (flat download)</string>
+         </property>
+        </widget>
+       </item>
        <item row="16" column="0">
         <widget class="QLabel" name="label_5">
          <property name="font">
@@ -59,20 +76,6 @@
          </property>
          <property name="alignment">
           <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="12" column="1">
-        <widget class="QCheckBox" name="chk_sfv">
-         <property name="text">
-          <string>Nach SFV Datei suchen und CRC32 vergleichen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="16" column="2">
-        <widget class="QPushButton" name="button_openUnrarPath">
-         <property name="text">
-          <string>Öffenen</string>
          </property>
         </widget>
        </item>
@@ -92,41 +95,15 @@
          </property>
         </widget>
        </item>
-       <item row="19" column="1">
-        <widget class="QCheckBox" name="chk_unrar_del">
-         <property name="text">
-          <string>RAR Dateien nach dem erfolgreichen Auspacken automatisch löschen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1" colspan="2">
-        <widget class="QLabel" name="label_2">
+       <item row="9" column="1">
+        <widget class="QLabel" name="label_21">
          <property name="font">
           <font>
            <pointsize>8</pointsize>
           </font>
          </property>
          <property name="text">
-          <string>Hier werden deine Downloads abgelegt. Der Pfad muß gültig und Schreiberechte vorhanden sein</string>
-         </property>
-        </widget>
-       </item>
-       <item row="14" column="1" colspan="2">
-        <widget class="Line" name="line_2">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item row="17" column="1">
-        <widget class="QLabel" name="label_16">
-         <property name="font">
-          <font>
-           <pointsize>8</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Absoluter Pfad zu UnRAR. Nur erforderlich, wenn RAR Dateien ausgepackt werden sollen.</string>
+          <string>Erstellt keine Unterodner, lädt alles in den Stammordner. Kann Vor- und Nachteile haben.</string>
          </property>
         </widget>
        </item>
@@ -134,6 +111,13 @@
         <widget class="QPushButton" name="button_openDownloadPath">
          <property name="text">
           <string>Öffnen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="20" column="1" colspan="2">
+        <widget class="Line" name="line_4">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -156,13 +140,6 @@
          </property>
         </widget>
        </item>
-       <item row="8" column="1">
-        <widget class="QCheckBox" name="chk_flatDownloads">
-         <property name="text">
-          <string>Keine Unterordner erstellen (flat download)</string>
-         </property>
-        </widget>
-       </item>
        <item row="13" column="1" colspan="2">
         <widget class="QLabel" name="label_4">
          <property name="font">
@@ -181,10 +158,103 @@
          </property>
         </widget>
        </item>
+       <item row="22" column="1">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="17" column="1">
+        <widget class="QLabel" name="label_16">
+         <property name="font">
+          <font>
+           <pointsize>8</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Absoluter Pfad zu UnRAR. Nur erforderlich, integriertes UnRAR NICHT benutzt wird.</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1" colspan="2">
+        <widget class="QLabel" name="label_2">
+         <property name="font">
+          <font>
+           <pointsize>8</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Hier werden deine Downloads abgelegt. Der Pfad muß gültig und Schreiberechte vorhanden sein</string>
+         </property>
+        </widget>
+       </item>
+       <item row="18" column="1">
+        <widget class="QCheckBox" name="chk_unrar">
+         <property name="text">
+          <string>RAR Dateien autoamtisch auspacken</string>
+         </property>
+        </widget>
+       </item>
        <item row="16" column="1">
         <widget class="QLineEdit" name="line_unrar_path">
          <property name="readOnly">
           <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="10" column="1" colspan="2">
+        <widget class="Line" name="line_3">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="16" column="2">
+        <widget class="QPushButton" name="button_openUnrarPath">
+         <property name="text">
+          <string>Öffenen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="14" column="1" colspan="2">
+        <widget class="Line" name="line_2">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="19" column="1">
+        <widget class="QCheckBox" name="chk_unrar_del">
+         <property name="text">
+          <string>RAR Dateien nach dem erfolgreichen Auspacken automatisch löschen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="11" column="1">
+        <widget class="QCheckBox" name="chk_crc32">
+         <property name="text">
+          <string>CRC32 Prüfsummen erstellen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="1">
+        <widget class="QCheckBox" name="chk_sfv">
+         <property name="text">
+          <string>Nach SFV Datei suchen und CRC32 vergleichen</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1" colspan="2">
+        <widget class="Line" name="line">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -204,23 +274,6 @@
          </property>
         </widget>
        </item>
-       <item row="11" column="1">
-        <widget class="QCheckBox" name="chk_crc32">
-         <property name="text">
-          <string>CRC32 Prüfsummen erstellen</string>
-         </property>
-        </widget>
-       </item>
-       <item row="15" column="1">
-        <widget class="QCheckBox" name="chk_use_internal_unrar">
-         <property name="text">
-          <string>Benutze integriertes UnRAR</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
        <item row="1" column="1">
         <widget class="QLineEdit" name="line_openDownloadPath">
          <property name="frame">
@@ -231,49 +284,26 @@
          </property>
         </widget>
        </item>
-       <item row="6" column="1" colspan="2">
-        <widget class="Line" name="line">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
+       <item row="21" column="1">
+        <widget class="QCheckBox" name="chk_sound_finish">
+         <property name="text">
+          <string>Sound abspielen, wenn Download beendet wurde</string>
          </property>
         </widget>
        </item>
-       <item row="9" column="1">
-        <widget class="QLabel" name="label_21">
+       <item row="21" column="0">
+        <widget class="QLabel" name="label_22">
          <property name="font">
           <font>
-           <pointsize>8</pointsize>
+           <pointsize>10</pointsize>
+           <bold>true</bold>
           </font>
          </property>
          <property name="text">
-          <string>Erstellt keine Unterodner, lädt alles in den Stammordner. Kann Vor- und Nachteile haben.</string>
+          <string>Sounds: </string>
          </property>
-        </widget>
-       </item>
-       <item row="20" column="1">
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="18" column="1">
-        <widget class="QCheckBox" name="chk_unrar">
-         <property name="text">
-          <string>RAR Dateien autoamtisch auspacken</string>
-         </property>
-        </widget>
-       </item>
-       <item row="10" column="1" colspan="2">
-        <widget class="Line" name="line_3">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
          </property>
         </widget>
        </item>

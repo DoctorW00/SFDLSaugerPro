@@ -168,6 +168,11 @@ void Settings::loadSettings()
     ui->line_proxy_pass->setText(_ftpProxyPass);
     config.endGroup();
 
+    config.beginGroup("sounds");
+    _play_sound_finish = config.value("playFinishSound").toBool();
+    ui->chk_sound_finish->setChecked(_play_sound_finish);
+    config.endGroup();
+
 }
 
 // save settings to file
@@ -243,6 +248,11 @@ void Settings::saveSettings()
     _ftpProxyUser = ui->line_proxy_user->text();
     config.setValue("ftpProxyPass", ui->line_proxy_pass->text());
     _ftpProxyPass = ui->line_proxy_pass->text();
+    config.endGroup();
+
+    config.beginGroup("sounds");
+    config.setValue("playFinishSound", ui->chk_sound_finish->isChecked());
+    _play_sound_finish = ui->chk_sound_finish->isChecked();
     config.endGroup();
 
 }
@@ -328,24 +338,6 @@ void Settings::on_button_openDownloadPath_clicked()
         QStorageInfo storage(downloadPath);
 
         QStringList errorReasons;
-        /*
-        if(storage.isReadOnly())
-        {
-            errorReasons << tr("Das Verzeichnis ist schreibgeschützt.");
-        }
-        if(!path.exists())
-        {
-            errorReasons << tr("Das Verzeichnis existiert nicht.");
-        }
-        if(!path.isDir())
-        {
-            errorReasons << tr("Die Auswahl ist kein Verzeichnis.");
-        }
-        if(!path.isWritable())
-        {
-            errorReasons << tr("Das Verzeichnis ist nicht beschreibbar.");
-        }
-        */
 
         if(!downloadPath.endsWith("/"))
         {

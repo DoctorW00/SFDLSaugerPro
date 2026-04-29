@@ -7,7 +7,7 @@
 
 typedef void* RARHandle;
 
-#include "rar.hpp"
+// #include "rar.hpp"
 #include <QFile>
 #include <QDir>
 #include <QDebug>
@@ -16,6 +16,7 @@ typedef void* RARHandle;
 #include <QMetaObject>
 #include <QThread>
 #include <QTimer>
+#include <QDateTime>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -178,18 +179,24 @@ int UnrarExtractor::unrarCallback(UINT msg, LPARAM userData, LPARAM p1, LPARAM p
         {
             QMutexLocker locker(&extractor->mutex);
 
-            int progress = 0;
-            if (extractor->currentFileTotalBytes > 0) {
-                progress = static_cast<int>(
-                    (extractor->currentFileProcessedBytes * 100) / extractor->currentFileTotalBytes
+            qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+            if (currentTime - extractor->lastUpdateTimestamp > 100 || extractor->currentFileProcessedBytes >= extractor->currentFileTotalBytes)
+            {
+                extractor->lastUpdateTimestamp = currentTime;
+
+                int progress = 0;
+                if (extractor->currentFileTotalBytes > 0) {
+                    progress = static_cast<int>(
+                        (extractor->currentFileProcessedBytes * 100) / extractor->currentFileTotalBytes
+                        );
+                }
+
+                emit extractor->updateUnRarProgress(
+                    extractor->id,
+                    extractor->currentFileName,
+                    progress
                     );
             }
-
-            emit extractor->updateUnRarProgress(
-                extractor->id,
-                extractor->currentFileName,
-                progress
-                );
         }
         break;
 

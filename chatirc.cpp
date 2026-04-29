@@ -10,6 +10,8 @@
 #include <IrcTextFormat>
 #include <IrcConnection>
 #include <Irc>
+#include <QSslSocket>
+#include <QSslError>
 
 chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
 {
@@ -539,7 +541,8 @@ void chatIRC::receiveMessage(IrcMessage* message)
     {
         raw += " " + p;
     }
-    qDebug().noquote() << "[IRC RAW]" << raw;
+    // qDebug().noquote() << "[IRC RAW]" << raw;
+    emit sendLogText("[IRC] " + raw);
 
     IrcBuffer* buffer = qobject_cast<IrcBuffer*>(sender());
     if(!buffer)
@@ -612,73 +615,55 @@ void chatIRC::createParser()
 
 void chatIRC::createConnection()
 {
-    /*
-    qDebug() << "IRC Con:";
-    qDebug() << "  DisplayName:" << ircServer_DisplayName;
-    qDebug() << "  Hostname:"    << ircServer_Host;
-    qDebug() << "  Port:"        << ircServer_Port;
-    qDebug() << "  Room:"        << ircServer_Room;
-    qDebug() << "  NickName:"    << ircServer_NickName;
-    qDebug() << "  RealName:"    << ircServer_RealName;
-    qDebug() << "  UserName:"    << ircServer_UserName;
-    qDebug() << "  Password:"    << ircServer_Password;
-    qDebug() << "  SSL:"         << ircServer_UseSSL;
-    qDebug() << "  -------------------------------------- ";
-    qDebug() << "  DisplayName:" << ircServer_ProxyName;
-    qDebug() << "  Hostname:"    << ircServer_ProxyHost;
-    qDebug() << "  Port:"        << ircServer_ProxyPort;
-    qDebug() << "  User:"        << ircServer_ProxyUser;
-    qDebug() << "  Pass:"        << ircServer_ProxyPass;
-    qDebug() << "  UseProxy:"    << ircServer_UseProxy;
-    */
-
     if(connection->isActive())
     {
         connection->quit(connection->realName());
         connection->close();
     }
 
-    // connection->setReconnectDelay(10);
-
-    if(ircServer_UseProxy)
-    {
-        proxySocket->setProxy(QNetworkProxy(QNetworkProxy::Socks5Proxy,
-                                       ircServer_ProxyHost,
-                                       ircServer_ProxyPort,
-                                       ircServer_ProxyUser,
-                                       ircServer_ProxyPass
-                                       ));
-
-        connection->setSocket(proxySocket);
-    }
-
     connection->setHost(ircServer_Host);
-    if(ircServer_UseSSL)
-    {
-        connection->setPort(+ircServer_Port); // leading + for secure con
-    }
-    else
-    {
-        connection->setPort(ircServer_Port);
-    }
+    connection->setPort(ircServer_Port);
     connection->setUserName(ircServer_UserName);
     connection->setNickName(ircServer_NickName);
     connection->setRealName(ircServer_RealName);
 
-    if(ircServer_Password.length())
+    connection->setSecure(ircServer_UseSSL);
+
+    if(ircServer_UseProxy)
     {
-        connection->setSaslMechanism("PLAIN");
+        QNetworkProxy proxy(QNetworkProxy::Socks5Proxy,
+                            ircServer_ProxyHost,
+                            ircServer_ProxyPort,
+                            ircServer_ProxyUser,
+                            ircServer_ProxyPass);
+        connection->socket()->setProxy(proxy);
+    }
+    else
+    {
+        connection->socket()->setProxy(QNetworkProxy::NoProxy);
+    }
+
+    if(ircServer_UseSSL)
+    {
+        QSslSocket* sslSocket = qobject_cast<QSslSocket*>(connection->socket());
+        if (sslSocket)
+        {
+            connect(sslSocket, SIGNAL(sslErrors(QList<QSslError>)), sslSocket, SLOT(ignoreSslErrors()));
+
+            connect(sslSocket, static_cast<void(QSslSocket::*)(const QList<QSslError>&)>(&QSslSocket::sslErrors),
+                    this, [sslSocket](const QList<QSslError>& errors)
+                    {
+                        sslSocket->ignoreSslErrors();
+                    });
+        }
+    }
+
+    if(!ircServer_Password.isEmpty())
+    {
         connection->setPassword(ircServer_Password);
     }
 
     connection->open();
-
-    /*
-    if(ircServer_Room.length())
-    {
-        connection->sendCommand(IrcCommand::createJoin(ircServer_Room));
-    }
-    */
 }
 
 void chatIRC::on_inputEdit_returnPressed()
