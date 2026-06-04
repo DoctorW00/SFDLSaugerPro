@@ -2783,7 +2783,7 @@ void SFDLSauger::openInFileZilla()
             #ifdef Q_OS_WIN
                 ftpClientPath = QFileDialog::getOpenFileName(this, "FileZilla", "", "FileZilla (filezilla.exe)");
             #else
-                fZILLA = QFileDialog::getOpenFileName(this, "FileZilla", "", "FileZilla (filezilla)");
+                ftpClientPath = QFileDialog::getOpenFileName(this, "FileZilla", "", "FileZilla (filezilla)");
             #endif
 
             if(!ftpClientPath.isEmpty())
