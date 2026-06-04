@@ -77,7 +77,7 @@ void WebServerWorker::process()
 
         {
             QMutexLocker locker(&m_logMutex);
-            for(const QString &log : qAsConst(m_logEntries))
+            for(const QString &log : m_logEntries)
             {
                 jsonArray.append(log);
             }
@@ -104,7 +104,7 @@ void WebServerWorker::process()
     svr.Get("/favicon.ico", deliverIcon);
     svr.Get("/apple-touch-icon.png", deliverIcon);
 
-    svr.set_error_handler([](const auto& req, auto& res) {
+    svr.set_error_handler([](const httplib::Request& req, httplib::Response& res) {
         auto fmt = "<p>Error Status: <span style='color:red;'>%d</span></p>";
         char buf[BUFSIZ];
         snprintf(buf, sizeof(buf), fmt, res.status);
@@ -117,7 +117,7 @@ void WebServerWorker::process()
         niceHost = m_host;
     }
 
-    svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
+    svr.set_exception_handler([](const httplib::Request& req, httplib::Response& res, std::exception_ptr ep) {
         auto fmt = "<h1>Error 500</h1><p>%s</p>";
         char buf[BUFSIZ];
         try {
