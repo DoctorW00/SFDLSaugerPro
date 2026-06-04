@@ -62,7 +62,7 @@ struct TabControl {
         currentStep = nextStep;
     }
 };
-QMap<QString, TabControl> m_tabWorkflows;
+extern QMap<QString, TabControl> m_tabWorkflows;
 
 // crc32 threads
 struct CrcTask {

@@ -4,6 +4,8 @@
 #include "ui_sfdlsauger.h"
 #include "commandworker.h"
 
+QMap<QString, TabControl> m_tabWorkflows;
+
 SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSauger)
 {
     qRegisterMetaType<QString>("QString");
