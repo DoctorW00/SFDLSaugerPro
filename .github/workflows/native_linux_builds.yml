@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential qtbase5-dev qtmultimedia5-dev libqt5svg5-dev libarchive-dev cmake git
+          sudo apt-get install -y build-essential qtbase5-dev qtmultimedia5-dev libqt5svg5-dev qttools5-dev-tools libarchive-dev cmake git
 
       - name: Build Libraries & App
         run: |
