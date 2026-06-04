@@ -17,24 +17,9 @@ class FTPListFiles : public QObject
 public:
     explicit FTPListFiles(QObject *parent = nullptr);
 
-private:
-    QFtp *ftp;
-    QTimer *timer;
-    QEventLoop *loop;
-    QString baseIP;
-    int basePort;
-    QString baseUser;
-    QString basePass;
-    QString basePath;
-    QStringList pathList;
-    QStringList fileList;
-    QString baseSFDL;
-    QNetworkProxy proxy;
-    QString lastCdPath;
-
 public slots:
     void ftpList(QString ip, int port, QString user, QString pass, QString path,
-                            QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data);
+                 QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data);
 
 private slots:
     void setFTP();
@@ -51,6 +36,23 @@ signals:
     void sendWarning(QString label, QString text);
     void sendLogText(QString text);
     void sendFTPData(QStringList data, QStringList files);
+
+private:
+    QFtp *ftp;
+    QTimer *timer;
+    QEventLoop *loop;
+    QString baseIP;
+    int basePort;
+    QString baseUser;
+    QString basePass;
+    QString basePath;
+    QStringList pathList;
+    QStringList fileList;
+    QString baseSFDL;
+    QNetworkProxy proxy;
+    QString lastCdPath;
+    bool m_hasErrorOccurred;
+
 };
 
 #endif // FTPLISTFILES_H

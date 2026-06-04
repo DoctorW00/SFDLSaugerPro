@@ -131,7 +131,7 @@ background: #e4e4e4;</string>
         <bool>false</bool>
        </property>
        <property name="readOnly">
-        <bool>true</bool>
+        <bool>false</bool>
        </property>
        <property name="markdown">
         <string notr="true"/>
@@ -147,7 +147,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="textInteractionFlags">
-        <set>Qt::TextInteractionFlag::NoTextInteraction</set>
+        <set>Qt::TextInteractionFlag::TextEditorInteraction</set>
        </property>
        <property name="placeholderText">
         <string notr="true"/>

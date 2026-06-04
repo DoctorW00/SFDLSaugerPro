@@ -1,14 +1,23 @@
 QT += core widgets gui network ftp xml multimedia
 
+win32 {
+    QT += winextras
+}
+
 TARGET = SFDLSaugerPro
 TEMPLATE = app
+
+DEFINES += QT_NO_WARNING_OUTPUT
 
 include(SingleApplication/singleapplication.pri)
 include(libcommuni/src/src.pri)
 DEFINES += QAPPLICATION_CLASS=QApplication
 
 SOURCES += \
+        commandworker.cpp \
+        filewatcher.cpp \
         main.cpp \
+        notificationclient.cpp \
         sfdlsauger.cpp \
         sfdl.cpp \
         ftplistfiles.cpp \
@@ -16,14 +25,20 @@ SOURCES += \
         about.cpp \
         settings.cpp \
         crc32.cpp \
+        taskbarprogressmanager.cpp \
         unrar.cpp \
         qaesencryption.cpp \
         unrarextractor.cpp \
         chatirc.cpp \
-        livelogs.cpp
+        livelogs.cpp \
+        webserver.cpp
 
 HEADERS += \
         FileOrganizer.h \
+        commandworker.h \
+        filewatcher.h \
+        httplib.h \
+        notificationclient.h \
         sfdlsauger.h \
         sfdl.h \
         ftplistfiles.h \
@@ -32,11 +47,13 @@ HEADERS += \
         about.h \
         settings.h \
         crc32.h \
+        taskbarprogressmanager.h \
         unrar.h \
         qaesencryption.h \
         unrarextractor.h \
         chatirc.h \
-        livelogs.h
+        livelogs.h \
+        webserver.h
 
 FORMS += \
         sfdlsauger.ui \
@@ -75,8 +92,8 @@ win32 {
 }
 # <- unrar end
 
-CONFIG += C++14 crypto
-VERSION = 1.5.2
+CONFIG += C++14 crypto thread
+VERSION = 1.6.0
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"
@@ -96,10 +113,40 @@ win32 {
     LIBS += -lws2_32 -luser32 -lshell32
 }
 
+unix {
+    LIBS += -lpthread
+}
+
 macx {
     ICON = icon.icns
     QMAKE_ENTITLEMENTS = $$PWD/entitlements.plist
 }
+
+# translations start ->
+TRANSLATIONS += i18n/German_de.ts \
+                i18n/English_en.ts
+
+qtPrepareTool(LRELEASE, lrelease)
+qm_files.commands = $$LRELEASE ${QMAKE_FILE_IN} -qm ${QMAKE_FILE_OUT}
+qm_files.input = TRANSLATIONS
+qm_files.output = $$OUT_PWD/i18n/${QMAKE_FILE_BASE}.qm
+qm_files.CONFIG += no_link target_predeps
+QMAKE_EXTRA_COMPILERS += qm_files
+
+QM_QM_FILES = $$replace(TRANSLATIONS, \.ts, .qm)
+QM_QM_FILES = $$replace(QM_QM_FILES, i18n/, $$OUT_PWD/i18n/)
+
+I18N_QRC = $$OUT_PWD/i18n_generated.qrc
+QRC_CONTENT = "<RCC><qresource prefix=\"/i18n\">"
+for(file, QM_QM_FILES) {
+    baseName = $$basename(file)
+    QRC_CONTENT += "<file alias=\"$$baseName\">$$file</file>"
+}
+QRC_CONTENT += "</qresource></RCC>"
+write_file($$I18N_QRC, QRC_CONTENT)
+
+RESOURCES += $$I18N_QRC
+# <- translations end
 
 QMAKE_PROJECT_DEPTH = 0
 

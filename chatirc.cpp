@@ -21,7 +21,6 @@ chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
 
     loadIRCLayout();
 
-
     connect(ui->selectIRCServer, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &chatIRC::on_selectIRCServer_currentIndexChanged);
     connect(ui->selectIRCProxy, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -78,25 +77,6 @@ chatIRC::~chatIRC()
     delete ui;
 }
 
-/*
-const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
-{
-    static const QVector<gsIrcServerInfo> servers{
-        { "MLC IRC (SSL)", "irc.mlc.to", 6697, true, "MLC_User", "MLC_Lover", "MLC_Liebhaber", "", "#mlcboard" }
-    };
-    return servers;
-}
-
-const QVector<gsSocks5ProxyInfo>& chatIRC::predefinedProxies()
-{
-    static const QVector<gsSocks5ProxyInfo> proxies{
-        { "Tor (localhost 9050)", "127.0.0.1", 9050, "", "" },
-        { "Tor (localhost 9150)", "127.0.0.1", 9150, "", "" }
-    };
-    return proxies;
-}
-*/
-
 const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
 {
     static const QVector<gsIrcServerInfo> servers{
@@ -142,7 +122,7 @@ void chatIRC::setupServerComboBox()
     QVector<gsIrcServerInfo> custom;
     QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
-    for(const auto& srv : custom)
+    for(const auto& srv : qAsConst(custom))
     {
         ui->selectIRCServer->addItem(srv.displayName, QVariant::fromValue(srv));
     }
@@ -177,7 +157,7 @@ void chatIRC::setupProxyComboBox()
     QVector<gsIrcServerInfo> dummyServers;
     QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
-    for(const auto& p : customProxies)
+    for(const auto& p : qAsConst(customProxies))
     {
         ui->selectIRCProxy->addItem(p.displayName, QVariant::fromValue(p));
     }
@@ -219,18 +199,6 @@ void chatIRC::on_selectIRCServer_currentIndexChanged(int index)
     ircServer_RealName    = srv.real;
     ircServer_Password    = srv.password;
     ircServer_UseSSL      = srv.ssl;
-
-    /*
-    qDebug() << "IRC Server:";
-    qDebug() << "  DisplayName:" << ircServer_DisplayName;
-    qDebug() << "  Hostname:"    << ircServer_Host;
-    qDebug() << "  Port:"        << ircServer_Port;
-    qDebug() << "  Room:"        << ircServer_Room;
-    qDebug() << "  Nick:"        << ircServer_NickName;
-    qDebug() << "  Realname:"    << ircServer_RealName;
-    qDebug() << "  Password:"    << ircServer_Password;
-    qDebug() << "  SSL:"         << ircServer_UseSSL;
-    */
 }
 
 void chatIRC::on_selectIRCProxy_currentIndexChanged(int index)
@@ -250,16 +218,6 @@ void chatIRC::on_selectIRCProxy_currentIndexChanged(int index)
     {
         ircServer_UseProxy = true;
     }
-
-    /*
-    qDebug() << "IRC Proxy:";
-    qDebug() << "  DisplayName 2:" << ircServer_ProxyName;
-    qDebug() << "  Hostname:"    << ircServer_ProxyHost;
-    qDebug() << "  Port:"        << ircServer_ProxyPort;
-    qDebug() << "  User:"        << ircServer_ProxyUser;
-    qDebug() << "  Pass:"        << ircServer_ProxyPass;
-    qDebug() << "  UseProxy:"    << ircServer_UseProxy;
-    */
 }
 
 void chatIRC::saveCustomServers(const QVector<gsIrcServerInfo>& servers, const QVector<gsSocks5ProxyInfo>& proxies)
@@ -727,7 +685,8 @@ void chatIRC::createSetupDialog()
 {
     if(setupDialog)
     {
-        setupDialog->deleteLater();
+        // setupDialog->deleteLater();
+        delete setupDialog;
         setupDialog = nullptr;
     }
 
@@ -759,7 +718,39 @@ void chatIRC::createSetupDialog()
     btnDeleteProxy = nullptr;
 
     setupDialog = new QDialog(this);
+
+    connect(setupDialog, &QObject::destroyed, this, [this]() {
+        setupDialog = nullptr;
+        comboServers = nullptr;
+        comboProxies = nullptr;
+        editDisplayName = nullptr;
+        editHostname = nullptr;
+        editNick = nullptr;
+        editUser = nullptr;
+        editReal = nullptr;
+        editPass = nullptr;
+        editDefaultChannel = nullptr;
+        spinPort = nullptr;
+        checkSsl = nullptr;
+        editProxyDisplayName = nullptr;
+        editProxyHost = nullptr;
+        editProxyUser = nullptr;
+        editProxyPassword = nullptr;
+        spinProxyPort = nullptr;
+        btnAddServer = nullptr;
+        btnUpdateServer = nullptr;
+        btnDeleteServer = nullptr;
+        btnAddProxy = nullptr;
+        btnUpdateProxy = nullptr;
+        btnDeleteProxy = nullptr;
+    });
+
     setupDialog->setAttribute(Qt::WA_DeleteOnClose);
+
+    connect(setupDialog, &QObject::destroyed, this, [this]() {
+        setupDialog = nullptr;
+    });
+
     setupDialog->setWindowTitle(tr("IRC Server & Proxy Setup"));
     setupDialog->resize(800, 700);
 
@@ -890,7 +881,7 @@ void chatIRC::refreshServerCombo()
     QVector<gsIrcServerInfo> custom;
     QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
-    for(const auto& s : custom)
+    for(const auto& s : qAsConst(custom))
     {
         comboServers->addItem(s.displayName, QVariant::fromValue(s));
     }
@@ -906,7 +897,7 @@ void chatIRC::refreshProxyCombo()
     QVector<gsIrcServerInfo> dummy;
     QVector<gsSocks5ProxyInfo> custom;
     loadCustomServers(dummy, custom);
-    for(const auto& p : custom)
+    for(const auto& p : qAsConst(custom))
     {
         comboProxies->addItem(p.displayName, QVariant::fromValue(p));
     }
@@ -1058,7 +1049,7 @@ void chatIRC::on_btnAddProxy_clicked()
     QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
 
-    for(const auto& p : customProxies)
+    for(const auto& p : qAsConst(customProxies))
     {
         if(p.displayName == proxy.displayName)
         {
@@ -1155,8 +1146,7 @@ void chatIRC::updateNickUserRealFromCurrentServer()
 void chatIRC::appendDebugMessage(const QString& text)
 {
     QString html = QString("<font color='red'>[%1] %2</font>")
-    .arg(QTime::currentTime().toString())
-    .arg(text);
+    .arg(QTime::currentTime().toString(), text);
 
     QTextDocument* document = ui->chatBrowser->document();
     if(document)
@@ -1261,4 +1251,13 @@ QString IrcMessageFormatter::formatQuitMessage(IrcQuitMessage* message)
         return QObject::tr("! %1 has quit").arg(message->nick());
     else
         return QObject::tr("! %1 has quit (%2)").arg(message->nick(), message->reason());
+}
+
+void chatIRC::changeEvent(QEvent *event)
+{
+    if(event->type() == QEvent::LanguageChange)
+    {
+        ui->retranslateUi(this);
+    }
+    QWidget::changeEvent(event);
 }

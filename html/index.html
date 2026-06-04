@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.ico">
+    <title>SFDLSauger Pro</title>
+    <style>
+        body { 
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+			background: #f4f7f9; 
+			display: flex; 
+			flex-direction: column;
+			justify-content: center; 
+			align-items: center; 
+			min-height: 100vh; 
+			margin: 0;
+			background-image: url("%%LOGO_BASE64%%");
+			background-repeat: no-repeat;
+			background-position: center;
+			background-attachment: fixed;
+			background-size: 512px;
+			padding: 20px;
+			box-sizing: border-box; /* Verhindert Scrolling bei Padding */
+			gap: 20px; /* Eleganter Abstand zwischen den Cards */
+		}
+		.card {
+			background: rgba(255, 255, 255, 0.9);
+			padding: 2rem;
+			border-radius: 12px;
+			box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+			width: 100%;
+			max-width: 500px;
+			margin: 0;
+		}
+		.logs {
+			width: 100%;
+			max-width: 95%;
+			margin: 0;
+		}
+        h2 { color: #2c3e50; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
+        .upload-area { 
+            border: 2px dashed #cbd5e0; 
+            padding: 1.5rem; 
+            border-radius: 8px; 
+            text-align: center; 
+            transition: border-color 0.2s; 
+            cursor: pointer;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+        }
+        .upload-area:hover { border-color: #3182ce; }
+        input[type="file"] { display: none; }
+        button { width: 100%; background: #3182ce; color: white; border: none; padding: 0.75rem; border-radius: 6px; margin-top: 1rem; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2b6cb0; }
+        
+        #log-container {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            height: 250px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            border: 1px solid #2d3748;
+        }
+        .log-status { font-size: 0.7rem; color: #718096; font-weight: normal; }
+        
+        #status { margin-top: 1rem; font-size: 0.9rem; padding: 0.5rem; border-radius: 4px; display: none; }
+        .success { background: #c6f6d5; color: #2f855a; display: block !important; }
+        .error { background: #fed7d7; color: #c53030; display: block !important; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>SFDL Upload</h2>
+        <div class="upload-area" onclick="document.getElementById('xmlFile').click()">
+            <span id="fileNameDisplay">Datei auswählen oder hierher ziehen</span>
+            <input type="file" id="xmlFile" accept=".sfdl" onchange="updateFileName()">
+        </div>
+        <button onclick="uploadFile()">Jetzt hochladen</button>
+        <div id="status"></div>
+    </div>
+	<div class="card logs">
+        <h2>Logs <span id="lastUpdate" class="log-status"></span></h2>
+        <div id="log-container">Warte auf Daten...</div>
+    </div>
+	
+<script>
+    const fileInput = document.getElementById('xmlFile');
+    const display = document.getElementById('fileNameDisplay');
+    const statusDiv = document.getElementById('status');
+    const logContainer = document.getElementById('log-container');
+    const lastUpdateSpan = document.getElementById('lastUpdate');
+
+    let lastLogHash = "";
+
+    function updateFileName() {
+        display.innerText = fileInput.files.length ? fileInput.files[0].name : "Datei auswählen oder hierher ziehen";
+    }
+
+    async function uploadFile() {
+        if (fileInput.files.length === 0) return alert('Bitte Datei wählen');
+        statusDiv.className = ''; 
+        statusDiv.innerText = 'Wird gesendet...'; 
+        statusDiv.style.display = 'block';
+
+        try {
+            const file = fileInput.files[0];
+            const response = await fetch('/xml-api', {
+                method: 'POST',
+                headers: { 'X-File-Name': encodeURIComponent(file.name) },
+                body: await file.text()
+            });
+
+            if (response.ok) {
+                statusDiv.className = 'success';
+                statusDiv.innerText = file.name + ' erfolgreich übertragen!';
+                fileInput.value = '';
+                updateFileName();
+                setTimeout(updateLogs, 500);
+            } else {
+                statusDiv.className = 'error';
+                statusDiv.innerText = 'Fehler: ' + response.status;
+            }
+        } catch (err) {
+            statusDiv.className = 'error';
+            statusDiv.innerText = 'Netzwerkfehler';
+        }
+    }
+
+    async function updateLogs() {
+        try {
+            const response = await fetch('/api/logs');
+            if (!response.ok) return;
+            const logs = await response.json();
+            
+            const currentHash = JSON.stringify(logs);
+            if (currentHash !== lastLogHash) {
+                lastLogHash = currentHash;
+                logContainer.innerHTML = logs.join("");
+                logContainer.scrollTop = logContainer.scrollHeight;
+                
+                const now = new Date();
+                lastUpdateSpan.innerText = "Letztes Update: " + now.toLocaleTimeString();
+            }
+        } catch (err) {
+            console.error("Log-Update fehlgeschlagen", err);
+        }
+    }
+
+    setInterval(updateLogs, 2000);
+    updateLogs();
+</script>
+</body>
+</html>
+

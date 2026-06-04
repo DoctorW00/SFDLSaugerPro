@@ -63,7 +63,8 @@ void Crc32::calculateFromFile()
         file.close();
     }
 
-    QString returnCRC32 = QString::number(crc ^ 0xFFFFFFFFUL, 16);
+    quint32 finalCrc = crc ^ 0xFFFFFFFFUL;
+    QString returnCRC32 = QString("%1").arg(finalCrc, 8, 16, QChar('0')).toUpper();
 
     emit updateCRC32data(id, nRow, returnCRC32);
     emit finished();
@@ -89,17 +90,18 @@ void Crc32::pushData(int i, char *data, int len)
     }
 }
 
-quint32 Crc32::releaseInstance(int i)
+QString Crc32::releaseInstance(int i)
 {
-    quint32 crc32 = instances[i];
+    if(!instances.contains(i))
+    {
+        return QString("00000000");
+    }
 
-    if(crc32)
-    {
-        instances.remove(i);
-        return crc32 ^ 0xFFFFFFFFUL;
-    }
-    else
-    {
-        return 0;
-    }
+    quint32 crc32 = instances[i];
+    instances.remove(i);
+
+    quint32 finalCrc = crc32 ^ 0xFFFFFFFFUL;
+    return QString("%1").arg(finalCrc, 8, 16, QChar('0')).toUpper();
 }
+
+

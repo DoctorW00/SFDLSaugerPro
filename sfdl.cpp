@@ -93,7 +93,6 @@ void sfdl::readSFDL()
     if(data.isEmpty())
     {
         sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht laden! (Keine Daten)</font>"));
-        // sendWarning(tr("SFDL Error"), tr("Kann SFDL Datei nicht laden! (Keine Daten)") + "\n[" + file + "]");
         return;
     }
 
@@ -102,7 +101,6 @@ void sfdl::readSFDL()
     if(!sfdl.setContent(data))
     {
         sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht laden! (Keine XML-Daten/Datei)</font>"));
-        // sendWarning(tr("SFDL Error"), tr("Kann SFDL Datei nicht laden! (Keine XML-Daten/Datei)") + "\n[" + file + "]");
         return;
     }
 
@@ -134,14 +132,6 @@ void sfdl::readSFDL()
         Description = fileInfo.baseName();
     }
 
-    /*
-    qDebug() << "Description: " << Description;
-    qDebug() << "Uploader: " << Uploader;
-    qDebug() << "SFDLFileVersion: " << SFDLFileVersion;
-    qDebug() << "Encrypted: " << Encrypted;
-    qDebug() << "MaxDownloadThreads: " << MaxDownloadThreads;
-    */
-
     n_data.append("Description|" + Description);
     n_data.append("Uploader|" + Uploader);
     n_data.append("SFDLFileVersion|" + SFDLFileVersion);
@@ -154,7 +144,7 @@ void sfdl::readSFDL()
     QString Name;
 
     QString Host;
-    int Port;
+    int Port = 0;
     QString Username;
     QString Password;
     QString AuthRequired;
@@ -195,26 +185,7 @@ void sfdl::readSFDL()
         }
     }
 
-    /*
-    qDebug() << "Name: " << Name;
-    qDebug() << "Host: " << Host;
-    qDebug() << "Port: " << Port;
-    qDebug() << "Username: " << Username;
-    qDebug() << "Password: " << Password;
-    qDebug() << "AuthRequired: " << AuthRequired;
-
-    qDebug() << "DataConnectionType: " << DataConnectionType;
-    qDebug() << "DataType: " << DataType;
-    qDebug() << "CharacterEncoding: " << CharacterEncoding;
-    qDebug() << "EncryptionMode: " << EncryptionMode;
-    qDebug() << "ListMethod: " << ListMethod;
-    qDebug() << "DefaultPath: " << DefaultPath;
-    qDebug() << "ForceSingleConnection: " << ForceSingleConnection;
-    qDebug() << "DataStaleDetection: " << DataStaleDetection;
-    qDebug() << "SpecialServerMode: " << SpecialServerMode;
-    */
-
-    if(Description.isEmpty() || Host.isEmpty() || !Port)
+    if(Description.isEmpty() || Host.isEmpty() || Port <= 0 || Port > 65535)
     {
         sendLogText("<font color=\"red\">" + file + tr(": Unzureichende Daten in SFDL Datei! Kein Download möglich.</font>"));
         return;
@@ -260,7 +231,6 @@ void sfdl::readSFDL()
         if(!ipTextOK)
         {
             sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort: ") + sfdlPassword + ")</font>");
-            // sendWarning(tr("SFDL Error"), tr("Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort)") + "\n[" + file + "]");
             return;
         }
 
@@ -285,10 +255,12 @@ void sfdl::readSFDL()
                     Host = dec;
                 }
 
+                /*
                 if(n_data.at(i).split("|").at(0) == "Port")
                 {
                     Port = dec.toInt();
                 }
+                */
 
                 if(n_data.at(i).split("|").at(0) == "Username")
                 {

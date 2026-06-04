@@ -25,9 +25,12 @@ public slots:
     void playMedia();
 
 private slots:
-    void closeEvent(QCloseEvent *e);
     void on_lautleise_valueChanged(int value);
     void audioPositionChanged(qint64 position);
+
+protected:
+    void closeEvent(QCloseEvent *e) override;
+    void changeEvent(QEvent *event) override;
 
 private:
     Ui::About *ui;

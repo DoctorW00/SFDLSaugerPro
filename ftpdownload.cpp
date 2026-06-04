@@ -1,10 +1,14 @@
 #include "ftpdownload.h"
+#include <QTimer>
 
 FTPDownload::FTPDownload(QStringList data) : data(data)
 {
     mutex.lock();
     _working = false;
     _abort = false;
+
+    downloadFinished = false;
+    downloadTimeouted = false;
 
     id = this->data.at(0);
     host = this->data.at(1);
@@ -52,11 +56,23 @@ FTPDownload::FTPDownload(QStringList data) : data(data)
     mutex.unlock();
 }
 
-FTPDownload::~FTPDownload(){}
+FTPDownload::~FTPDownload()
+{
+    if(file)
+    {
+        if(file->isOpen())
+        {
+            file->close();
+        }
+        delete file;
+    }
+}
 
 void FTPDownload::abort()
 {
-    mutex.lock();
+    QMutexLocker locker(&mutex);
+    if (_abort) return;
+
     _abort = true;
     _working = false;
 
@@ -64,11 +80,11 @@ void FTPDownload::abort()
     {
         ftp->abort();
     }
-    if(ftpLoop)
+
+    if(ftpLoop && ftpLoop->isRunning())
     {
         ftpLoop->quit();
     }
-    mutex.unlock();
 }
 
 void FTPDownload::finishedDownload()
@@ -79,13 +95,16 @@ void FTPDownload::finishedDownload()
 }
 
 void FTPDownload::process()
-{
+{    
     if(!proxy.hostName().isEmpty() && proxy.port() > 0)
     {
         QNetworkProxy::setApplicationProxy(proxy);
     }
 
-    emit statusUpdateFile(id, _tableRow, tr("Wird geladen ..."), 1);
+    if(!m_isChunked || m_isMasterChunk)
+    {
+        emit statusUpdateFile(id, _tableRow, tr("Wird geladen ..."), 1);
+    }
 
     mutex.lock();
     _working = true;
@@ -97,54 +116,151 @@ void FTPDownload::process()
     connect(ftp, SIGNAL(done(bool)), this, SLOT(isDone(bool)));
     connect(ftp, SIGNAL(dataTransferProgress(qint64,qint64)), this, SLOT(updateProgress(qint64, qint64)));
 
-    file = new QFile();
+    connect(ftp, &QFtp::done, ftpLoop, &QEventLoop::quit);
+
+    // file = new QFile();
+    file = new ThrottledFile();
     file->setFileName(QDir::toNativeSeparators(QDir::cleanPath(dlpath + "/" + dlfile)));
 
-    if(file->size())
+    bool openSuccess = false;
+
+    if(m_isChunked)
     {
-        // continue download
-        if(file->open(QIODevice::Append) && file->isWritable())
+        if(file->open(QIODevice::ReadWrite))
         {
-            ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
-            ftp->connectToHost(host, port.toInt());
-            ftp->login(user, pass);
-            ftp->cd(dir);
+            emit sendLogText(tr("[%1] Lade Chunk %2 bis %3").arg(QFileInfo(*file).fileName(), QString::number(m_chunkStart), QString::number(m_chunkEnd)));
 
-            ftp->m_fileSize = file->size(); // set file size
+            openSuccess = true;
+            ftp->m_fileSize = m_chunkStart;
+            if(!file->seek(m_chunkStart))
+            {
+                emit statusUpdateFile(id, _tableRow, tr("Fehler: Seek fehlgeschlagen"), 3);
+                emit finished();
 
-            ftp->get(dlfile, file);
-            ftp->close();
-            ftpLoop->exec();
+                ftp->deleteLater();
+                file->deleteLater();
+                ftpLoop->deleteLater();
+                return;
+            }
         }
     }
     else
     {
-        // download from scratch
-        if(file->open(QIODevice::WriteOnly) && file->isWritable())
+        if(file->size() > 0)
         {
-            ftpLoop->connect(ftp, SIGNAL(done(bool)), ftpLoop, SLOT(quit()));
-            ftp->connectToHost(host, port.toInt());
-            ftp->login(user, pass);
-            ftp->cd(dir);
-            ftp->m_fileSize = 0;
-            ftp->get(dlfile, file);
-            ftp->close();
-            ftpLoop->exec();
+            if(file->open(QIODevice::Append) && file->isWritable())
+            {
+                openSuccess = true;
+                ftp->m_fileSize = file->size();
+            }
+        }
+        else
+        {
+            if(file->open(QIODevice::WriteOnly) && file->isWritable())
+            {
+                openSuccess = true;
+                ftp->m_fileSize = 0;
+            }
         }
     }
 
-    file->flush();
-    file->close();
-    delete file;
-    file = nullptr;
-    delete ftp;
-    delete ftpLoop;
-    ftpLoop = nullptr;
+    if(openSuccess)
+    {
+        ftp->connectToHost(host, port.toInt());
+        ftp->login(user, pass);
+        ftp->cd(dir);
+        ftp->setTransferMode(QFtp::Passive);
+        ftp->get(dlfile, file);
+
+        QTimer timeoutTimer;
+        timeoutTimer.setSingleShot(true);
+
+        connect(&timeoutTimer, &QTimer::timeout, ftpLoop, [this]() {
+            downloadTimeouted = true;
+            ftpLoop->quit();
+        });
+
+        connect(ftp, &QFtp::dataTransferProgress, &timeoutTimer, [&timeoutTimer](qint64 bytes, qint64 total) {
+            Q_UNUSED(bytes);
+            Q_UNUSED(total);
+            timeoutTimer.start(30000);
+        });
+
+        timeoutTimer.start(30000);
+        ftpLoop->exec();
+        timeoutTimer.stop();
+    }
+
+    if(ftp)
+    {
+        ftp->blockSignals(true);
+    }
+
+    mutex.lock();
+    bool userAborted = _abort;
+    mutex.unlock();
+
+    if(!downloadFinished)
+    {
+        if(userAborted)
+        {
+            emit statusUpdateFile(id, _tableRow, tr("User Abbruch!"), 9);
+            downloadFinished = true;
+        }
+        else
+        {
+            isDone(true);
+        }
+    }
+
+    if(ftp)
+    {
+        ftp->blockSignals(true);
+        ftp->clearPendingCommands();
+        ftp->close();
+        ftp->abort();
+        ftp->deleteLater();
+        ftp = nullptr;
+    }
+
+    if(file)
+    {
+        if(file->isOpen())
+        {
+            file->flush();
+            file->close();
+        }
+        file->deleteLater();
+        file = nullptr;
+    }
+
+    if(ftpLoop)
+    {
+        ftpLoop->deleteLater();
+        ftpLoop = nullptr;
+    }
+
+    mutex.lock();
+    _working = false;
+    mutex.unlock();
+
+    emit finished();
 }
 
 void FTPDownload::isDone(bool)
 {
-    if(ftp->error())
+    if(downloadFinished) return;
+    downloadFinished = true;
+
+    mutex.lock();
+    bool userAborted = _abort;
+    mutex.unlock();
+
+    if(userAborted)
+    {
+        emit statusUpdateFile(id, _tableRow, tr("User Abbruch!"), 9);
+    }
+    else if(ftp && ftp->error())
     {
         /*
         QFtp::NoError           0	No error occurred.
@@ -158,43 +274,102 @@ void FTPDownload::isDone(bool)
         {
             emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler: ") + ftp->errorString(), 3);
         }
-
-        if(ftp->error() == 2)
+        else if(ftp->error() == 2)
         {
             emit statusUpdateFile(id, _tableRow, tr("Host nicht gefunden: ") + ftp->errorString(), 2);
         }
-
-        if(ftp->error() == 3)
+        else if(ftp->error() == 3)
         {
             emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert: ") + ftp->errorString(), 2);
         }
-
-        if(ftp->error() == 4)
+        else if(ftp->error() == 4)
         {
             emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden: ") + ftp->errorString(), 2);
         }
+        else
+        {
+            emit statusUpdateFile(id, _tableRow, tr("FTP Fehler!"), 2);
+        }
+    }
+    else if(downloadTimeouted)
+    {
+        emit statusUpdateFile(id, _tableRow, tr("FTP Timeout!"), 2);
     }
     else
     {
-        emit statusUpdateFile(id, _tableRow, tr("Fertig!"), 10);
+        if(!m_isChunked)
+        {
+            emit statusUpdateFile(id, _tableRow, tr("Fertig!"), 10);
+        }
+        else
+        {
+            emit sendLogText(tr("[%1] Chunk %2 bis %3 fertig geladen!").arg(QFileInfo(*file).fileName(), QString::number(m_chunkStart), QString::number(m_chunkEnd)));
+        }
     }
 
     if(file->isOpen())
     {
+        file->flush();
         file->close();
     }
 
     mutex.lock();
     _working = false;
-    mutex.lock();
-
-    emit finished();
+    mutex.unlock();
 }
 
 void FTPDownload::updateProgress(qint64 read, qint64 total)
 {
-    if(_working && !_abort)
+    mutex.lock();
+    bool aborted = _abort;
+    bool working = _working;
+    mutex.unlock();
+
+    if(!working || aborted || read <= 0) return;
+
+    if(m_isChunked)
     {
+        emit doChunkProgress(id, _tableRow, m_chunkIndex, read, m_totalSize);
+
+        qint64 currentAbsPos = m_chunkStart + read;
+        if(m_chunkEnd > 0 && currentAbsPos >= m_chunkEnd)
+        {
+            mutex.lock();
+            _working = false;
+            mutex.unlock();
+
+            if(ftp)
+            {
+                ftp->clearPendingCommands();
+                ftp->abort();
+            }
+
+            if(ftpLoop && ftpLoop->isRunning())
+            {
+                ftpLoop->quit();
+            }
+        }
+    }
+    else
+    {
+        if(total > 0 && read >= total && !downloadFinished)
+        {
+            mutex.lock();
+            bool finalAbortCheck = _abort;
+            mutex.unlock();
+
+            if(!finalAbortCheck)
+            {
+                isDone(true);
+                return;
+            }
+        }
+
         emit doProgress(id, _tableRow, read, total, false, false);
     }
 }
+
+
+
+
+

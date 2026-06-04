@@ -66,7 +66,7 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
     listArchiveData.UserData = reinterpret_cast<LPARAM>(this);
 
     RARHandle hArcList = RAROpenArchiveEx(&listArchiveData);
-    if(listArchiveData.OpenResult != ERAR_SUCCESS)
+    if (listArchiveData.OpenResult != ERAR_SUCCESS)
     {
         emit error(tr("Konnte RAR nicht für die Berechnung der Größe öffnen!"));
         return false;
@@ -76,7 +76,7 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
     memset(&listHeader, 0, sizeof(listHeader));
     totalBytes = 0;
 
-    while(RARReadHeaderEx(hArcList, &listHeader) == ERAR_SUCCESS)
+    while (RARReadHeaderEx(hArcList, &listHeader) == ERAR_SUCCESS)
     {
         quint64 fileSize = static_cast<quint64>(listHeader.UnpSize) + (static_cast<quint64>(listHeader.UnpSizeHigh) << 32);
         totalBytes += fileSize;
@@ -101,8 +101,7 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
     archiveData.UserData = reinterpret_cast<LPARAM>(this);
 
     RARHandle hArc = RAROpenArchiveEx(&archiveData);
-
-    if(archiveData.OpenResult != ERAR_SUCCESS)
+    if (archiveData.OpenResult != ERAR_SUCCESS)
     {
         emit error(QString(tr("Archive Fehler: %1")).arg(archiveData.OpenResult));
         return false;
@@ -117,7 +116,7 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
 
     QByteArray targetDirLocal = QFile::encodeName(nativeTargetDir);
 
-    while((result = RARReadHeaderEx(hArc, &header)) == ERAR_SUCCESS)
+    while ((result = RARReadHeaderEx(hArc, &header)) == ERAR_SUCCESS)
     {
 #ifdef Q_OS_WIN
         currentFileName = QString::fromWCharArray(header.FileNameW);
@@ -128,28 +127,47 @@ bool UnrarExtractor::extractArchive(const QString& rarPath, const QString& targe
         currentFileProcessedBytes = 0;
 
         int processResult = RARProcessFile(hArc, RAR_EXTRACT, const_cast<char*>(targetDirLocal.constData()), nullptr);
-        QThread::msleep(10);
 
-        if(processResult != ERAR_SUCCESS)
+        QCoreApplication::processEvents();
+
+        if (processResult != ERAR_SUCCESS)
         {
             RARCloseArchive(hArc);
             emit error(QString(tr("UnRAR auspacken error: %1")).arg(processResult));
             return false;
         }
+        else
+        {
+            QMutexLocker locker(&mutex);
+            currentFileProcessedBytes = currentFileTotalBytes;
+            cumulativeBytes += currentFileTotalBytes;
+            QMetaObject::invokeMethod(this, [this]() {
+                emit updateUnRarProgress(id, currentFileName, 100);
+            }, Qt::QueuedConnection);
+        }
+        QCoreApplication::processEvents();
 
         currentFileName.clear();
-        currentFileTotalBytes = 0;
     }
 
     RARCloseArchive(hArc);
 
-    if(result != ERAR_END_OF_ARCHIVE)
+    if (result == ERAR_END_OF_ARCHIVE)
+    {
+        QMutexLocker locker(&mutex);
+        cumulativeBytes = totalBytes;
+        QMetaObject::invokeMethod(this, [this]() {
+            emit updateUnRarProgress(id, tr("Fertig"), 100);
+            emit finished();
+        }, Qt::QueuedConnection);
+        QCoreApplication::processEvents();
+    }
+    else
     {
         emit error(QString(tr("UnRAR Archive Fehler: %1")).arg(result));
         return false;
     }
 
-    emit finished();
     return true;
 }
 
@@ -166,39 +184,41 @@ void UnrarExtractor::handleProgressUpdate()
 int UnrarExtractor::unrarCallback(UINT msg, LPARAM userData, LPARAM p1, LPARAM p2)
 {
     Q_UNUSED(p1);
-    
+    Q_UNUSED(p2);
+
     auto extractor = reinterpret_cast<UnrarExtractor*>(userData);
     if (!extractor) return -1;
 
     switch (msg)
     {
     case UCM_PROCESSDATA:
+    {
+        QMutexLocker locker(&extractor->mutex);
         extractor->currentFileProcessedBytes += p2;
         extractor->cumulativeBytes += p2;
 
+        int fileProgress = 0;
+        if (extractor->currentFileTotalBytes > 0)
         {
-            QMutexLocker locker(&extractor->mutex);
-
-            qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-            if (currentTime - extractor->lastUpdateTimestamp > 100 || extractor->currentFileProcessedBytes >= extractor->currentFileTotalBytes)
-            {
-                extractor->lastUpdateTimestamp = currentTime;
-
-                int progress = 0;
-                if (extractor->currentFileTotalBytes > 0) {
-                    progress = static_cast<int>(
-                        (extractor->currentFileProcessedBytes * 100) / extractor->currentFileTotalBytes
-                        );
-                }
-
-                emit extractor->updateUnRarProgress(
-                    extractor->id,
-                    extractor->currentFileName,
-                    progress
-                    );
-            }
+            fileProgress = static_cast<int>(
+                (static_cast<double>(extractor->currentFileProcessedBytes) /
+                 extractor->currentFileTotalBytes) * 100
+                );
         }
-        break;
+
+        qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+        if (currentTime - extractor->lastUpdateTimestamp > 100 ||
+            extractor->currentFileProcessedBytes >= extractor->currentFileTotalBytes)
+        {
+            extractor->lastUpdateTimestamp = currentTime;
+            emit extractor->updateUnRarProgress(
+                extractor->id,
+                extractor->currentFileName,
+                fileProgress
+                );
+        }
+    }
+    break;
 
     case UCM_NEEDPASSWORD:
         emit extractor->error(QObject::tr("Passwortgeschützte RAR Dateien werden nicht unterstützt!"));
@@ -211,5 +231,3 @@ int UnrarExtractor::unrarCallback(UINT msg, LPARAM userData, LPARAM p1, LPARAM p
 
     return 0;
 }
-
-

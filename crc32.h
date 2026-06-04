@@ -27,7 +27,9 @@ private slots:
     void initTable();
     void initInstance(int i);
     void pushData(int i, char *data, int len);
-    quint32 releaseInstance(int i);
+    // quint32 releaseInstance(int i);
+    QString releaseInstance(int i);
+
 
 signals:
     void finished();

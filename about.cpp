@@ -6,17 +6,16 @@ About::About(QWidget *parent) : QDialog(parent), ui(new Ui::About)
 {
     ui->setupUi(this);
 
-    ui->label_3->setText(tr("Version <b>") + QString(APP_VERSION)
-                         + "</b><br />" + tr("Erstellt mit ") +  "<a href=\"https://isocpp.org/\">C++</a> und <a href=\"https://www.qt.io/\">Qt</a>" + tr(" von ") + "<b>GrafSauger</b>"
-                         + tr(" für ") + "<a href=\"https://mlcboard.com/\">MLCBoard.com</a></b>"
-                         + "<br />" + tr("Was ist SFDL? Simple FTP download ") + "<a href=\"https://sfdl.net/\">SFDL.net</a>"
-                         + "<br /> UnRAR © Alexander Roshal <a href=\"https://www.rarlab.com/rar_add.htm\">rarlab.com</a>"
-                         + "<br /> libcommuni - IRC Framework <a href=\"https://github.com/communi/libcommuni\">libcommuni</a>");
+    ui->label_3->setMinimumSize(0, 0);
+    ui->label_3->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    ui->label_3->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+    ui->label_3->setWordWrap(true);
+    ui->label_3->setText(tr("Version ") + "<b>"+ QString(APP_VERSION) + "</b>");
+    ui->label_3->updateGeometry();
     ui->label_3->setTextFormat(Qt::RichText);
     ui->label_3->setTextInteractionFlags(Qt::TextBrowserInteraction);
     ui->label_3->setOpenExternalLinks(true);
 
-    ui->label_4->setText("<a href=\"https://www.youtube.com/watch?v=gNqQL-1gZF8&t=5m46s\">True Facts About Marsupials</a>");
     ui->label_4->setTextFormat(Qt::RichText);
     ui->label_4->setTextInteractionFlags(Qt::TextBrowserInteraction);
     ui->label_4->setOpenExternalLinks(true);
@@ -39,6 +38,7 @@ void About::playMedia()
     movie = new QMovie(":/gfx/koala.gif");
     processLabel = new QLabel(this);
     processLabel->setMovie(movie);
+    processLabel->setFixedHeight(144);
 
     ui->gridLayout->addWidget(processLabel);
 
@@ -75,4 +75,13 @@ void About::closeEvent(QCloseEvent *e)
 void About::on_lautleise_valueChanged(int value)
 {
     player->setVolume(value);
+}
+
+void About::changeEvent(QEvent *event)
+{
+    if(event->type() == QEvent::LanguageChange)
+    {
+        ui->retranslateUi(this);
+    }
+    QWidget::changeEvent(event);
 }

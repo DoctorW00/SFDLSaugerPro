@@ -154,6 +154,9 @@ private slots:
 signals:
     void sendLogText(QString text);
 
+protected:
+    void changeEvent(QEvent *event) override;
+
 private:
     static const QVector<gsIrcServerInfo>& predefinedServers();
     static const QVector<gsSocks5ProxyInfo>& predefinedProxies();

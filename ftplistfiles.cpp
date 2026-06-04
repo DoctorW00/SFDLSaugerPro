@@ -23,27 +23,26 @@ void FTPListFiles::setFTP()
 
 void FTPListFiles::ftpTimeout()
 {
-    if(timer->isActive())
+    m_hasErrorOccurred = true;
+
+    if(timer && timer->isActive())
     {
         timer->stop();
     }
 
-    if(loop->isRunning())
+    if(ftp)
+    {
+        ftp->clearPendingCommands();
+        ftp->abort();
+    }
+
+    if(loop && loop->isRunning())
     {
         loop->exit(0);
     }
 
-    ftp->abort();
-    ftp->close();
-    ftp->deleteLater();
-
     emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Timeout! Keine Verbindung zum Server.</font>"));
     emit sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
-
-    delete ftp;
-    delete loop;
-    delete timer;
-    setFTP();
 }
 
 void FTPListFiles::ftpstateChanged(int state)
@@ -154,7 +153,7 @@ void FTPListFiles::ftpCommandFinished(int commandId, bool error)
 }
 
 void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
-                                  QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data)
+                           QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data)
 {
     // set proxy
     if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
@@ -197,8 +196,17 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
     lastCdPath = path;
 
     pathList.clear();
+    fileList.clear();
+
+    m_hasErrorOccurred = false;
 
     getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
+
+    if(m_hasErrorOccurred)
+    {
+        fileList.clear();
+        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP-Index abgebrochen (FTP-Timeout).</font>"));
+    }
 
     emit sendFTPData(data, fileList);
 }
@@ -226,13 +234,26 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
 
     loop->exec();
 
-    ftp->close();
-    delete ftp;
-    delete timer;
-    delete loop;
-    ftp = nullptr;
-    timer = nullptr;
-    loop = nullptr;
+    if(timer)
+    {
+        timer->stop();
+        timer->deleteLater();
+        timer = nullptr;
+    }
+
+    if(ftp)
+    {
+        ftp->clearPendingCommands();
+        ftp->abort();
+        ftp->deleteLater();
+        ftp = nullptr;
+    }
+
+    if(loop)
+    {
+        loop->deleteLater();
+        loop = nullptr;
+    }
 
     while(!pathList.isEmpty())
     {

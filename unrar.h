@@ -23,17 +23,20 @@ public:
 signals:
     void finished();
     void updateUnRarProgress(QString id, QString fileName, int progress);
+    void error(const QString& message);
 
 public slots:
     void startUnRAR();
 
 private slots:
     void ReadOut();
-    void ReadErr();
 
 private:
     QProcess *p;
     QStringList data;
+
+    QString m_program;
+    QStringList m_arguments;
 
     QString file;     // file to extract
     QString destPath; // extract destination
