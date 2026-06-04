@@ -27,7 +27,7 @@ jobs:
           cd qtftp/src/qftp && qmake && make && sudo make install
           cd ../../../
           cd unrar && make lib && cd ..
-          mkdir build && cd build && qmake ../ && make
+          mkdir build && cd build && qmake ../ QMAKE_CXXFLAGS+="-Wno-unused-argument -Wno-unused-parameter" && make
 
       - name: Prepare Package Structure
         run: |
