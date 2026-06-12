@@ -61,13 +61,13 @@ jobs:
               
               RUN_DATA=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json status,conclusion)
               
-              STATUS=$(echo "$RUN_DATA" | jq -r '..status')
-              CONCLUSION=$(echo "$RUN_DATA" | jq -r '..conclusion')
+              STATUS=$(echo "$RUN_DATA" | jq -r '.[0].status // empty')
+              CONCLUSION=$(echo "$RUN_DATA" | jq -r '.[0].conclusion // empty')
 
-              if [ "$STATUS" = "null" ] || [ -z "$STATUS" ]; then
+              if [ -z "$STATUS" ] || [ "$STATUS" = "null" ]; then
                 STATUS="unknown"
               fi
-              if [ "$CONCLUSION" = "null" ] || [ -z "$CONCLUSION" ]; then
+              if [ -z "$CONCLUSION" ] || [ "$CONCLUSION" = "null" ]; then
                 CONCLUSION="pending"
               fi
 
@@ -98,7 +98,7 @@ jobs:
           for item in "${WORKFLOWS[@]}"; do
             IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
             
-            RUN_ID=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json databaseId --jq '..databaseId')
+            RUN_ID=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
             
             echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
             mkdir -p "./tmp_$wf_dir"
