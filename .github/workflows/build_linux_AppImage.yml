@@ -1,4 +1,4 @@
-name: Build Linux AppImage Qt5 C++
+name: Build Linux AppImage x86_64 Qt5 C++
 
 on:
   #push:
@@ -68,6 +68,12 @@ jobs:
           cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
       - name: Create AppImage
         env:
           QMAKE: /usr/lib/qt5/bin/qmake
@@ -83,6 +89,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro.AppImage
-          path: 'SFDLSaugerPro*.AppImage'
+          path: 'SFDLSaugerPro-v${{ env.APP_VERSION }}-x86_64.AppImage'
 
 
