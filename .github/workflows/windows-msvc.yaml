@@ -33,6 +33,13 @@ jobs:
           nmake
           nmake install
 
+      - name: Build Local unrar Library (MSVC Static)
+        shell: cmd
+        run: |
+          cd unrar
+          nmake -f makefile lib
+          copy libunrar.lib unrar.lib
+
       - name: Build Application
         shell: cmd
         run: |
