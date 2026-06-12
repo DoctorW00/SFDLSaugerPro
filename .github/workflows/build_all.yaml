@@ -59,7 +59,6 @@ jobs:
             for item in "${WORKFLOWS[@]}"; do
               IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
               
-              # Holt den neuesten Run, der per workflow_dispatch auf diesem Branch gestartet wurde
               RUN_DATA=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json status,conclusion)
               STATUS=$(echo "$RUN_DATA" | jq -r '.[0].status // "unknown"')
               CONCLUSION=$(echo "$RUN_DATA" | jq -r '.[0].conclusion // "pending"')
@@ -96,27 +95,39 @@ jobs:
             echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
             mkdir -p "./tmp_$wf_dir"
             
-            if [ -n "$art_name" ]; then
-              gh run download "$RUN_ID" --name "$art_name" --dir "./tmp_$wf_dir"
-            else
-              gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
-            fi
+            gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
 
             if [ "$unzip_flag" = "true" ]; then
               echo "Unzipping files for $wf_name..."
               cd "./tmp_$wf_dir"
-              for zipfile in *.zip; do
-                if [ -f "$zipfile" ]; then
-                  unzip -o "$zipfile"
-                  rm "$zipfile"
+              if [ -n "$art_name" ]; then
+                if [ -f "${art_name}.zip" ]; then
+                  unzip -o "${art_name}.zip"
+                  rm "${art_name}.zip"
                 fi
-              done
+              else
+                for zipfile in *.zip; do
+                  if [ -f "$zipfile" ]; then
+                    unzip -o "$zipfile"
+                    rm "$zipfile"
+                  fi
+                done
+              fi
               cd - > /dev/null
+            else
+              if [ -n "$art_name" ]; then
+                cd "./tmp_$wf_dir"
+                find . -type f -name "*.zip" ! -name "${art_name}.zip" -delete 2>/dev/null || true
+                cd - > /dev/null
+              fi
             fi
 
             cp -r ./tmp_$wf_dir/* ./release-artifacts/
             rm -rf "./tmp_$wf_dir"
           done
+
+          find ./release-artifacts -mindepth 2 -type f -exec mv {} ./release-artifacts/ \;
+          find ./release-artifacts -type d -empty -delete
 
           chmod +x ./release-artifacts/*.AppImage 2>/dev/null || true
 
