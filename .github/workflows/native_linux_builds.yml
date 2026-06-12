@@ -1,4 +1,4 @@
-name: Build Native Linux Packages
+name: Build Native Linux Packages Qt5 C++
 
 on:
   # push:
@@ -45,13 +45,20 @@ jobs:
           Categories=Utility;
           EOF
 
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Create nfpm.yaml
         run: |
           cat << EOF > nfpm.yaml
           name: "sfdlsaugerpro"
           arch: "${{ matrix.arch }}"
           platform: "linux"
-          version: "1.0.0"
+          version: "${{ env.APP_VERSION }}"
           section: "utils"
           priority: "optional"
           maintainer: "GrafSauger <graf@sauger.local>"
@@ -102,7 +109,6 @@ jobs:
 
       - name: Build all formats with NFPM
         run: |
-          # Wir führen nfpm manuell für jedes Format aus
           nfpm pkg --packager deb
           nfpm pkg --packager rpm
           nfpm pkg --packager archlinux
