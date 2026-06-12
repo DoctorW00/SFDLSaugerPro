@@ -143,10 +143,13 @@ jobs:
         id: get_version
         shell: bash
         run: |
-          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Rename DMG for Apple Intel
+        run: |
+          mv build/SFDLSaugerPro.dmg "build/SFDLSaugerPro-AppleIntel-v${{ env.APP_VERSION }}.dmg"
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro-AppleIntel-v${{ env.APP_VERSION }}
-          path: build/SFDLSaugerPro.dmg
+          path: "build/SFDLSaugerPro-AppleIntel-v${{ env.APP_VERSION }}.dmg"
