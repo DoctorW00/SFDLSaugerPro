@@ -21,6 +21,14 @@ jobs:
         run: |
           choco install openssl -y --no-progress
 
+      - name: Build qtftp Library
+        shell: cmd
+        run: |
+          git clone https://github.com/DoctorW00/qtftp.git
+          cd qtftp\src\qftp
+          qmake
+          mingw32-make -j2
+
       - name: Build Application
         shell: cmd
         run: |
