@@ -14,34 +14,30 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '5.15.2'
-          arch: 'win64_mingw81'
+          arch: 'win64_msvc2019_64' 
           cache: true
 
-      - name: Install OpenSSL for MinGW
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install OpenSSL
         run: |
           choco install openssl -y --no-progress
 
-      - name: Build qtftp Library
+      - name: Build and Install qtftp Library
         shell: cmd
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp\src\qftp
           qmake
-          mingw32-make -j2
-          mingw32-make install
-
-      - name: Build unrar
-        shell: cmd
-        run: |
-          cd unrar
-          mingw32-make -f makefile -j2 lib
-          copy libunrar.a unrar.a
+          nmake
+          nmake install
 
       - name: Build Application
         shell: cmd
         run: |
           qmake
-          mingw32-make -j2
+          nmake
 
       - name: Deploy Qt Dependencies (windeployqt)
         shell: cmd
@@ -72,4 +68,3 @@ jobs:
         with:
           name: windows-package
           path: "*.zip"
-
