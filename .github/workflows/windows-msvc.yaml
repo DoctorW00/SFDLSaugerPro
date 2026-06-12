@@ -27,7 +27,7 @@ jobs:
       - name: Build and Install qtftp Library
         shell: cmd
         run: |
-          git clone https://github[DOT]com/DoctorW00/qtftp.git
+          git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp\src\qftp
           qmake
           nmake
