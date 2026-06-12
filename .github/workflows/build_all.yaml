@@ -25,20 +25,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           WORKFLOWS=(
-            "Build Linux AppImage x86_64 Qt5 C++ | linux_x64_appimage | true | "
-            "Build Linux AppImage ARM64 Qt5 C++ | linux_arm64_appimage | true | "
-            "Build Apple Silicon C++ Qt5 | apple_silicon | true | "
-            "Build Apple Intel C++ Qt5 | apple_intel | true | "
-            "Build Native Linux Packages Qt5 C++ | linux_native_x86 | true | native-packages-x86_64"
-            "Build Native Linux Packages Qt5 C++ | linux_native_arm | true | native-packages-arm64"
-            "Build Windows Qt5 C++ | windows_shared | false | SFDLSaugerPro-windows-v$APP_VERSION"
-            "Build Windows Qt5 C++ | windows_installer | true | SFDLSaugerPro-windows-v$APP_VERSION-Installer"
+            "Build Linux AppImage x86_64 Qt5 C++;linux_x64_appimage;true;"
+            "Build Linux AppImage ARM64 Qt5 C++;linux_arm64_appimage;true;"
+            "Build Apple Silicon C++ Qt5;apple_silicon;true;"
+            "Build Apple Intel C++ Qt5;apple_intel;true;"
+            "Build Native Linux Packages Qt5 C++;linux_native_x86;true;native-packages-x86_64"
+            "Build Native Linux Packages Qt5 C++;linux_native_arm;true;native-packages-arm64"
+            "Build Windows Qt5 C++;windows_shared;false;SFDLSaugerPro-windows-v$APP_VERSION"
+            "Build Windows Qt5 C++;windows_installer;true;SFDLSaugerPro-windows-v$APP_VERSION-Installer"
           )
 
           echo "Triggering child workflows..."
           TRIGGERED_WORKFLOWS=()
           for item in "${WORKFLOWS[@]}"; do
-            IFS=" | " read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+            IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
             if [[ ! " ${TRIGGERED_WORKFLOWS[@]} " =~ " ${wf_name} " ]]; then
               gh workflow run "$wf_name" --ref ${{ github.ref_name }}
               TRIGGERED_WORKFLOWS+=("$wf_name")
@@ -54,7 +54,7 @@ jobs:
             any_failed=false
 
             for item in "${WORKFLOWS[@]}"; do
-              IFS=" | " read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+              IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
               
               RUN_DATA=$(gh run list --workflow="$wf_name" --limit 1 --json status,conclusion --jq '.')
               STATUS=$(echo "$RUN_DATA" | jq -r '.status')
@@ -85,7 +85,7 @@ jobs:
 
           echo "Processing artifacts..."
           for item in "${WORKFLOWS[@]}"; do
-            IFS=" | " read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+            IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
             
             RUN_ID=$(gh run list --workflow="$wf_name" --limit 1 --json databaseId --jq '..databaseId')
             
