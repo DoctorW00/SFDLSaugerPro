@@ -36,7 +36,7 @@ jobs:
       - name: Deploy Prebuilt unrar Library
         shell: cmd
         run: |
-          cd unrar
+          cd unrardll
           copy x64\UnRAR64.lib .\unrar.lib
           if not exist ..\release mkdir ..\release
           copy x64\UnRAR64.dll ..\release\unrar.dll
