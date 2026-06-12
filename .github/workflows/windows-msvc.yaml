@@ -4,6 +4,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  APP_VERSION: ""
 
 jobs:
   build:
@@ -82,14 +83,25 @@ jobs:
           VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Create Installer Package
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DAppVersion=${{ env.APP_VERSION }} installer.iss
+
       - name: Create ZIP Package
         shell: powershell
         run: |
           Compress-Archive -Path release\* -DestinationPath .\SFDLSaugerPro-windows-v$($env:APP_VERSION).zip
 
-      - name: Upload Package Artifact
+      - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SFDLSaugerPro-windows-v${{ env.APP_VERSION }}
-          path: "release/"
+          name: SFDLSaugerPro-windows-v${{ env.APP_VERSION }}-Installer
+          path: "SFDLSaugerPro-windows-v${{ env.APP_VERSION }}-Installer.exe"
+
+      - name: Upload ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SFDLSaugerPro-windows-v${{ env.APP_VERSION }}-ZIP
+          path: "SFDLSaugerPro-windows-v*.zip"
 
