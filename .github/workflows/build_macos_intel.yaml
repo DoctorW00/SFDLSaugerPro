@@ -1,4 +1,4 @@
-name: Build MacOS Intel C++ Qt5 Build
+name: Build Apple Intel C++ Qt5 Build
 on:
 #  push:
 #    branches:
