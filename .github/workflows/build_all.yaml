@@ -1,0 +1,137 @@
+name: Build ALL and RELEASE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Process All Workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          WORKFLOWS=(
+            "Build Linux AppImage x86_64 Qt5 C++ | linux_x64_appimage | true | "
+            "Build Linux AppImage ARM64 Qt5 C++ | linux_arm64_appimage | true | "
+            "Build Apple Silicon C++ Qt5 | apple_silicon | true | "
+            "Build Apple Intel C++ Qt5 | apple_intel | true | "
+            "Build Native Linux Packages Qt5 C++ | linux_native_x86 | true | native-packages-x86_64"
+            "Build Native Linux Packages Qt5 C++ | linux_native_arm | true | native-packages-arm64"
+            "Build Windows Qt5 C++ | windows_shared | false | SFDLSaugerPro-windows-v$APP_VERSION"
+            "Build Windows Qt5 C++ | windows_installer | true | SFDLSaugerPro-windows-v$APP_VERSION-Installer"
+          )
+
+          echo "Triggering child workflows..."
+          TRIGGERED_WORKFLOWS=()
+          for item in "${WORKFLOWS[@]}"; do
+            IFS=" | " read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+            if [[ ! " ${TRIGGERED_WORKFLOWS[@]} " =~ " ${wf_name} " ]]; then
+              gh workflow run "$wf_name" --ref ${{ github.ref_name }}
+              TRIGGERED_WORKFLOWS+=("$wf_name")
+            fi
+          done
+          sleep 10
+
+          mkdir -p ./release-artifacts
+
+          echo "Monitoring child workflows..."
+          while true; do
+            all_completed=true
+            any_failed=false
+
+            for item in "${WORKFLOWS[@]}"; do
+              IFS=" | " read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+              
+              RUN_DATA=$(gh run list --workflow="$wf_name" --limit 1 --json status,conclusion --jq '.')
+              STATUS=$(echo "$RUN_DATA" | jq -r '.status')
+              CONCLUSION=$(echo "$RUN_DATA" | jq -r '.conclusion')
+
+              echo "Workflow: '$wf_name' -> Status: $STATUS | Conclusion: $CONCLUSION"
+
+              if [ "$STATUS" != "completed" ]; then
+                all_completed=false
+              elif [ "$CONCLUSION" != "success" ]; then
+                any_failed=true
+              fi
+            done
+
+            if [ "$any_failed" = true ]; then
+              echo "Error: At least one workflow failed!"
+              exit 1
+            fi
+
+            if [ "$all_completed" = true ]; then
+              echo "All workflows completed successfully."
+              break
+            fi
+
+            echo "Waiting 30 seconds for the next check..."
+            sleep 30
+          done
+
+          echo "Processing artifacts..."
+          for item in "${WORKFLOWS[@]}"; do
+            IFS=" | " read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+            
+            RUN_ID=$(gh run list --workflow="$wf_name" --limit 1 --json databaseId --jq '..databaseId')
+            
+            echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
+            mkdir -p "./tmp_$wf_dir"
+            
+            if [ -n "$art_name" ]; then
+              gh run download "$RUN_ID" --name "$art_name" --dir "./tmp_$wf_dir"
+            else
+              gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
+            fi
+
+            if [ "$unzip_flag" = "true" ]; then
+              echo "Unzipping files for $wf_name..."
+              cd "./tmp_$wf_dir"
+              for zipfile in *.zip; do
+                if [ -f "$zipfile" ]; then
+                  unzip -o "$zipfile"
+                  rm "$zipfile"
+                fi
+              done
+              cd - > /dev/null
+            fi
+
+            cp -r ./tmp_$wf_dir/* ./release-artifacts/
+            rm -rf "./tmp_$wf_dir"
+          done
+
+          chmod +x ./release-artifacts/*.AppImage 2>/dev/null || true
+
+          echo "Final release artifacts:"
+          ls -lh ./release-artifacts/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="v${{ env.APP_VERSION }}"
+          echo "Dry-run: Checking files for release $TAG_NAME..."
+          for file in ./release-artifacts/*; do
+            if [ -f "$file" ]; then
+              echo "Would upload: $(basename "$file")"
+            fi
+          done
+          
+          # gh release create "$TAG_NAME" ./release-artifacts/* \
+          #   --title "Release $TAG_NAME" \
+          #   --generate-notes \
+          #   --target ${{ github.ref_name }}
