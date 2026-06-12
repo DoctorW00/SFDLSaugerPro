@@ -68,6 +68,13 @@ jobs:
               }
           }
 
+      - name: Clean Build Garbage from Release
+        shell: powershell
+        run: |
+          if (Test-Path "release") {
+              Get-ChildItem -Path "release" -Include "*.obj","*.cpp","*.h","*.res","*.moc","*.exp" -Recurse | Remove-Item -Force
+          }
+
       - name: Extract version from .pro file
         id: get_version
         shell: bash
@@ -83,5 +90,5 @@ jobs:
       - name: Upload Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-package
-          path: "*.zip"
+          name: SFDLSaugerPro-windows-v$($env:APP_VERSION)
+          path: "release/"
