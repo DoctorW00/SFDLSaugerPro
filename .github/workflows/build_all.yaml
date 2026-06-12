@@ -45,7 +45,9 @@ jobs:
               TRIGGERED_WORKFLOWS+=("$wf_name")
             fi
           done
-          sleep 10
+          
+          echo "Waiting 20 seconds for GitHub to register new runs..."
+          sleep 20
 
           mkdir -p ./release-artifacts
 
@@ -57,15 +59,16 @@ jobs:
             for item in "${WORKFLOWS[@]}"; do
               IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
               
-              RUN_DATA=$(gh run list --workflow="$wf_name" --limit 1 --json status,conclusion --jq '.')
-              STATUS=$(echo "$RUN_DATA" | jq -r '.status')
-              CONCLUSION=$(echo "$RUN_DATA" | jq -r '.conclusion')
+              # Holt den neuesten Run, der per workflow_dispatch auf diesem Branch gestartet wurde
+              RUN_DATA=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json status,conclusion)
+              STATUS=$(echo "$RUN_DATA" | jq -r '.[0].status // "unknown"')
+              CONCLUSION=$(echo "$RUN_DATA" | jq -r '.[0].conclusion // "pending"')
 
               echo "Workflow: '$wf_name' -> Status: $STATUS | Conclusion: $CONCLUSION"
 
-              if [ "$STATUS" != "completed" ]; then
+              if [ "$STATUS" = "unknown" ] || [ "$STATUS" = "queued" ] || [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "waiting" ]; then
                 all_completed=false
-              elif [ "$CONCLUSION" != "success" ]; then
+              elif [ "$STATUS" = "completed" ] && [ "$CONCLUSION" != "success" ]; then
                 any_failed=true
               fi
             done
@@ -88,7 +91,7 @@ jobs:
           for item in "${WORKFLOWS[@]}"; do
             IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
             
-            RUN_ID=$(gh run list --workflow="$wf_name" --limit 1 --json databaseId --jq '..databaseId')
+            RUN_ID=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
             
             echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
             mkdir -p "./tmp_$wf_dir"
