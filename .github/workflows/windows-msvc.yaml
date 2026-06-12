@@ -102,6 +102,6 @@ jobs:
       - name: Upload ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SFDLSaugerPro-windows-v${{ env.APP_VERSION }}-ZIP
-          path: "SFDLSaugerPro-windows-v*.zip"
+          name: SFDLSaugerPro-windows-v${{ env.APP_VERSION }}
+          path: "release/"
 
