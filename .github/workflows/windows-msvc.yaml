@@ -51,7 +51,7 @@ jobs:
         shell: cmd
         run: |
           cd release
-          windeployqt --verbose 1 *.exe
+          windeployqt --verbose 1 SFDLSaugerPro.exe
           
       - name: Copy OpenSSL DLLs to Release
         shell: cmd
