@@ -1,4 +1,4 @@
-name: Build Apple Silicon
+name: Build Apple Silicon C++ Qt5 Build
 on:
 #  push:
 #    branches:
