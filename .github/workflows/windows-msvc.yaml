@@ -38,6 +38,8 @@ jobs:
         run: |
           cd unrardll
           copy x64\UnRAR64.lib .\unrar.lib
+          if not exist ..\unrar mkdir ..\unrar
+          copy x64\UnRAR64.lib ..\unrar\unrar.lib
           if not exist ..\release mkdir ..\release
           copy x64\UnRAR64.dll ..\release\unrar.dll
 
@@ -54,10 +56,14 @@ jobs:
           windeployqt --verbose 1 SFDLSaugerPro.exe
           
       - name: Copy OpenSSL DLLs to Release
-        shell: cmd
+        shell: powershell
         run: |
-          copy "C:\Program Files\OpenSSL-Win64\libcrypto-1_1-x64.dll" release\
-          copy "C:\Program Files\OpenSSL-Win64\libssl-1_1-x64.dll" release\
+          $openssl_dir = "C:\Program Files\OpenSSL*"
+          if (Test-Path $openssl_dir) {
+              Get-ChildItem -Path $openssl_dir -Filter "*.dll" -Recurse | Where-Object { $_.Name -like "libcrypto*" -or $_.Name -like "libssl*" } | ForEach-Object {
+                  Copy-Item -Path $_.FullName -Destination "release\" -Force
+              }
+          }
 
       - name: Extract version from .pro file
         id: get_version
