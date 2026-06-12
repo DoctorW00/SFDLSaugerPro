@@ -1,4 +1,4 @@
-name: Apple Silicon
+name: Build Apple Silicon
 on:
 #  push:
 #    branches:
@@ -133,9 +133,15 @@ jobs:
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg
+          name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: build/SFDLSaugerPro.dmg
 
