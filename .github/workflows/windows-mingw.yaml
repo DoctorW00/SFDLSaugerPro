@@ -30,6 +30,13 @@ jobs:
           mingw32-make -j2
           mingw32-make install
 
+      - name: Build unrar
+        shell: cmd
+        run: |
+          cd unrar
+          mingw32-make -f makefile -j2 lib
+          copy libunrar.a unrar.a
+
       - name: Build Application
         shell: cmd
         run: |
