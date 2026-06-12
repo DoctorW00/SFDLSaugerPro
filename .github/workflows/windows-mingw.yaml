@@ -1,0 +1,59 @@
+name: Build Windows Qt5 C++ Shared
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          arch: 'win64_mingw81'
+          cache: true
+
+      - name: Install OpenSSL for MinGW
+        run: |
+          choco install openssl -y --no-progress
+
+      - name: Build Application
+        shell: cmd
+        run: |
+          qmake
+          mingw32-make -j2
+
+      - name: Deploy Qt Dependencies (windeployqt)
+        shell: cmd
+        run: |
+          cd release
+          windeployqt --verbose 1 *.exe
+          
+      - name: Copy OpenSSL DLLs to Release
+        shell: cmd
+        run: |
+          copy "C:\Program Files\OpenSSL-Win64\libcrypto-1_1-x64.dll" release\
+          copy "C:\Program Files\OpenSSL-Win64\libssl-1_1-x64.dll" release\
+
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create ZIP Package
+        shell: powershell
+        run: |
+          Compress-Archive -Path release\* -DestinationPath .\SFDLSaugerPro-windows-v$($env:APP_VERSION).zip
+
+      - name: Upload Package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: "*.zip"
+
