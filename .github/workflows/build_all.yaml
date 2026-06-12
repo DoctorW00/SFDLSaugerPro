@@ -32,8 +32,8 @@ jobs:
             "Build Apple Intel C++ Qt5;apple_intel;true;"
             "Build Native Linux Packages Qt5 C++;linux_native_x86;true;native-packages-x86_64"
             "Build Native Linux Packages Qt5 C++;linux_native_arm;true;native-packages-arm64"
-            "Build Windows Qt5 C++;windows_shared;false;SFDLSaugerPro-windows-v$APP_VERSION"
-            "Build Windows Qt5 C++;windows_installer;true;SFDLSaugerPro-windows-v$APP_VERSION-Installer"
+            "Build Windows Qt5 C++ Shared;windows_shared;false;SFDLSaugerPro-windows-v$APP_VERSION"
+            "Build Windows Qt5 C++ Shared;windows_installer;true;SFDLSaugerPro-windows-v$APP_VERSION-Installer"
           )
 
           echo "Triggering child workflows..."
