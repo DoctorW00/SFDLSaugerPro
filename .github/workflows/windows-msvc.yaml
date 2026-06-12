@@ -33,14 +33,13 @@ jobs:
           nmake
           nmake install
 
-      - name: Build Local unrar Library (MSVC Nativ)
+      - name: Deploy Prebuilt unrar Library
         shell: cmd
         run: |
           cd unrar
-          msbuild UnRARDll.vcxproj /p:Configuration=Release /p:Platform=x64 /p:WindowsTargetPlatformVersion=10.0 /p:PlatformToolset=v143
-          copy build\unrar64\Release\UnRARDll.lib .\unrar.lib
+          copy x64\UnRAR64.lib .\unrar.lib
           if not exist ..\release mkdir ..\release
-          copy build\unrar64\Release\unrar.dll ..\release\
+          copy x64\UnRAR64.dll ..\release\unrar.dll
 
       - name: Build Application
         shell: cmd
