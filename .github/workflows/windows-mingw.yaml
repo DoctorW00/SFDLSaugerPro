@@ -28,6 +28,7 @@ jobs:
           cd qtftp\src\qftp
           qmake
           mingw32-make -j2
+          mingw32-make install
 
       - name: Build Application
         shell: cmd
