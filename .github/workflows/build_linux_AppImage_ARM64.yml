@@ -79,9 +79,15 @@ jobs:
             --plugin qt \
             --plugin gstreamer \
             --output appimage
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SFDLSaugerPro-ARM64.AppImage
+          name: SFDLSaugerPro-v${{ env.APP_VERSION }}-aarch64.AppImage
           path: 'SFDLSaugerPro*.AppImage'
 
