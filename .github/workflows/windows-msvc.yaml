@@ -33,12 +33,12 @@ jobs:
           nmake
           nmake install
 
-      - name: Build Local unrar Library (MSVC Static)
+      - name: Build Local unrar Library (MSVC Nativ)
         shell: cmd
         run: |
           cd unrar
-          nmake -f makefile lib
-          copy libunrar.lib unrar.lib
+          msbuild unrar.vcxproj /p:Configuration=Release /p:Platform=x64
+          copy x64\Release\unrar.lib .\unrar.lib
 
       - name: Build Application
         shell: cmd
