@@ -37,8 +37,8 @@ jobs:
         shell: cmd
         run: |
           cd unrar
-          msbuild unrar.vcxproj /p:Configuration=Release /p:Platform=x64 /p:WindowsTargetPlatformVersion=10.0
-          copy x64\Release\unrar.lib .\unrar.lib
+          msbuild UnRAR.vcxproj /p:Configuration=Release /p:Platform=x64 /p:WindowsTargetPlatformVersion=10.0 /p:PlatformToolset=v143
+          copy x64\Release\UnRAR.lib .\unrar.lib
 
       - name: Build Application
         shell: cmd
