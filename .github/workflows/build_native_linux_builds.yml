@@ -58,7 +58,7 @@ jobs:
       - name: Create nfpm.yaml
         run: |
           cat << EOF > nfpm.yaml
-          name: "sfdlsaugerpro"
+          name: "SFDLSaugerPro"
           arch: "${{ matrix.arch }}"
           platform: "linux"
           version: "${{ env.APP_VERSION }}"
