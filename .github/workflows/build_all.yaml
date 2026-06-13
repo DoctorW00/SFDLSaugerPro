@@ -102,7 +102,14 @@ jobs:
             
             echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
             mkdir -p "./tmp_$wf_dir"
-            gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
+            
+            if [ -n "$art_name" ]; then
+              ARTIFACT_FILTER="$art_name"
+            else
+              ARTIFACT_FILTER="$wf_dir"
+            fi
+
+            gh run download "$RUN_ID" --name "$ARTIFACT_FILTER" --dir "./tmp_$wf_dir"
 
             if [ "$unzip_flag" = "true" ]; then
               echo "Unzipping files for $wf_name..."
