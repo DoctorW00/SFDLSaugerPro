@@ -104,7 +104,9 @@ jobs:
             mkdir -p "./tmp_$wf_dir"
             
             if [ -n "$art_name" ]; then
-              gh run download "$RUN_ID" --name "$art_name" --dir "./tmp_$wf_dir"
+              gh run download "$RUN_ID" --name "$art_name" --dir "./tmp_$wf_dir" 2>/dev/null || {
+                gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
+              }
             else
               gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
             fi
@@ -112,11 +114,18 @@ jobs:
             if [ "$unzip_flag" = "true" ]; then
               echo "Unzipping files for $wf_name..."
               pushd "./tmp_$wf_dir" > /dev/null
-              if [ -n "$art_name" ]; then
-                if [ -f "${art_name}.zip" ]; then
-                  unzip -o "${art_name}.zip"
-                  rm "${art_name}.zip"
-                fi
+              
+              if [ -d "$art_name" ]; then
+                pushd "$art_name" > /dev/null
+                for zipfile in *.zip; do
+                  if [ -f "$zipfile" ]; then unzip -o "$zipfile" && rm "$zipfile"; fi
+                done
+                popd > /dev/null
+              fi
+
+              if [ -n "$art_name" ] && [ -f "${art_name}.zip" ]; then
+                unzip -o "${art_name}.zip"
+                rm "${art_name}.zip"
               else
                 for zipfile in *.zip; do
                   if [ -f "$zipfile" ]; then
@@ -134,7 +143,7 @@ jobs:
               if [ -f "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ]; then
                 cp "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ../release-artifacts/
               else
-                cp *.zip ../release-artifacts/ 2>/dev/null || cp -r ./* ../release-artifacts/
+                find . -type f -name "*.zip" -exec cp {} ../release-artifacts/ \; 2>/dev/null || cp -r ./* ../release-artifacts/
               fi
               popd > /dev/null
             fi
