@@ -135,20 +135,13 @@ jobs:
                 done
               fi
               popd > /dev/null
-              
               cp -r ./tmp_$wf_dir/* ./release-artifacts/
             else
-              echo "Passing through ZIP archive for $wf_name without changes..."
+              echo "Create ZIP archive ..."
               pushd "./tmp_$wf_dir" > /dev/null
-
-              echo "ls -lh ..."
-              ls -lh
-
               ZIP_NAME="SFDLSaugerPro-windows-v${APP_VERSION}.zip"
               zip -r "../release-artifacts/$ZIP_NAME" ./*
-              
               find . -type f -name "*.zip" -exec cp {} ../release-artifacts/ \; 2>/dev/null || cp -r ./* ../release-artifacts/
-              
               popd > /dev/null
             fi
 
@@ -156,28 +149,18 @@ jobs:
           done
 
           find ./release-artifacts -mindepth 2 -type f -exec mv {} ./release-artifacts/ \;
-
-          echo "Cleanup ..."
-          find ./release-artifacts -type d -empty -print -delete
-
+          find ./release-artifacts -type d -empty -delete
           chmod +x ./release-artifacts/*.AppImage 2>/dev/null || true
-
-          echo "Final release artifacts:"
-          ls -lh ./release-artifacts/
 
       - name: Create GitHub Release 
         env: 
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: | 
           TAG_NAME="v${{ env.APP_VERSION }}" 
-          echo "Dry-run: Checking files for release $TAG_NAME..." 
-          for file in ./release-artifacts/*; do 
-            if [ -f "$file" ]; then 
-              echo "Would upload: $(basename "$file")" 
-            fi 
-          done 
-           
-          # gh release create "$TAG_NAME" ./release-artifacts/* \ 
-          #   --title "Release $TAG_NAME" \ 
-          #   --generate-notes \ 
-          #   --target ${{ github.ref_name }}
+          
+          echo "Creating live GitHub Release for $TAG_NAME..." 
+          
+          gh release create "$TAG_NAME" ./release-artifacts/* \ 
+            --title "SFDLSauger Pro $TAG_NAME" \ 
+            --generate-notes \ 
+            --target "${{ github.ref_name }}"
