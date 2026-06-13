@@ -124,22 +124,20 @@ jobs:
               cd - > /dev/null
             else
               if [ -n "$art_name" ]; then
-                cd "./tmp_$wf_dir"
+                pushd "./tmp_$wf_dir" > /dev/null
                 find . -type f -name "*.zip" ! -name "${art_name}.zip" -delete 2>/dev/null || true
                 if [ -d "$art_name" ] && [ ! -f "${art_name}.zip" ]; then
-                  echo "Zipping folder $art_name back into a single archive..."
-                  cd "$art_name"
-                  this_path=$(pwd)
-                  echo "This directory: $this_path"
-                  one_path_up=$(dirname "$this_path")
-                  echo "One path up: $one_path_up"
-                  zip -r "../${art_name}.zip" ./*
-                  if [ -d "$one_path_up" ]; then
-                    cd "$one_path_up"
+                    echo "Zipping folder $art_name back into a single archive..."
+                    pushd "$art_name" > /dev/null
+                    this_path=$(pwd)
+                    echo "This directory: $this_path"
+                    one_path_up=$(dirname "$this_path")
+                    echo "One path up: $one_path_up"
+                    zip -r "../${art_name}.zip" ./*
+                    popd > /dev/null  # Geht zurück in tmp_$wf_dir
                     rm -rf "$this_path"
-                  fi
                 fi
-                cd - > /dev/null
+                popd > /dev/null
               fi
             fi
 
