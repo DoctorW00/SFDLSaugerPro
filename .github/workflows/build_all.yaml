@@ -152,7 +152,9 @@ jobs:
           done
 
           find ./release-artifacts -mindepth 2 -type f -exec mv {} ./release-artifacts/ \;
-          find ./release-artifacts -type d -empty -delete
+
+          echo "Cleanup ..."
+          find ./release-artifacts -type d -empty -print -delete
 
           chmod +x ./release-artifacts/*.AppImage 2>/dev/null || true
 
