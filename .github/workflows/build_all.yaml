@@ -141,8 +141,8 @@ jobs:
               echo "Passing through ZIP archive for $wf_name without changes..."
               pushd "./tmp_$wf_dir" > /dev/null
 
-              echo "Dir ..."
-              ls -lh "./tmp_$wf_dir"
+              echo "ls -lh ..."
+              ls -lh
               
               if [ -f "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ]; then
                 cp "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ../release-artifacts/
