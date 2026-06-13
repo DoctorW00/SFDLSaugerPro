@@ -129,10 +129,15 @@ jobs:
                 if [ -d "$art_name" ] && [ ! -f "${art_name}.zip" ]; then
                   echo "Zipping folder $art_name back into a single archive..."
                   cd "$art_name"
-                  echo "This directory: '$PWD'"
+                  this_path=$(pwd)
+                  echo "This directory: $this_path"
+                  one_path_up=$(dirname "$this_path")
+                  echo "One path up: $one_path_up"
                   zip -r "../${art_name}.zip" ./*
-                  cd "./tmp_$wf_dir"
-                  rm -rf "$art_name"
+                  if [ -d "$one_path_up" ]; then
+                    cd "$one_path_up"
+                    rm -rf "$this_path"
+                  fi
                 fi
                 cd - > /dev/null
               fi
