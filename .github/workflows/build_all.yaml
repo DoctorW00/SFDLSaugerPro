@@ -104,12 +104,10 @@ jobs:
             mkdir -p "./tmp_$wf_dir"
             
             if [ -n "$art_name" ]; then
-              ARTIFACT_FILTER="$art_name"
+              gh run download "$RUN_ID" --name "$art_name" --dir "./tmp_$wf_dir"
             else
-              ARTIFACT_FILTER="$wf_dir"
+              gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
             fi
-
-            gh run download "$RUN_ID" --name "$ARTIFACT_FILTER" --dir "./tmp_$wf_dir"
 
             if [ "$unzip_flag" = "true" ]; then
               echo "Unzipping files for $wf_name..."
@@ -132,7 +130,13 @@ jobs:
               cp -r ./tmp_$wf_dir/* ./release-artifacts/
             else
               echo "Passing through ZIP archive for $wf_name without changes..."
-              cp -r ./tmp_$wf_dir/* ./release-artifacts/
+              pushd "./tmp_$wf_dir" > /dev/null
+              if [ -f "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ]; then
+                cp "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ../release-artifacts/
+              else
+                cp *.zip ../release-artifacts/ 2>/dev/null || cp -r ./* ../release-artifacts/
+              fi
+              popd > /dev/null
             fi
 
             rm -rf "./tmp_$wf_dir"
