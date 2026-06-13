@@ -123,45 +123,25 @@ jobs:
               fi 
               cd - > /dev/null 
             else 
-              if [ -n "$art_name" ]; then 
-                pushd "./tmp_$wf_dir" > /dev/null 
-                find . -type f -name "*.zip" ! -name "${art_name}.zip" -delete 2>/dev/null || true 
-                if [ -d "$art_name" ] && [ ! -f "${art_name}.zip" ]; then 
-                    echo "Zipping folder $art_name back into a single archive..." 
-                    pushd "$art_name" > /dev/null 
-                    mapfile -t files_to_cleanup < <(find . -mindepth 1 -maxdepth 1 -print) 
-                    zip -r "../${art_name}.zip" ./* popd > /dev/null 
-                    rm -rf "$this_path" 
-                fi 
-                popd > /dev/null 
-              fi 
+              echo "Passing through ZIP archive for $wf_name without changes..." 
             fi 
-
-            # cp -r ./tmp_$wf_dir/* ./release-artifacts/ 
-            # rm -rf "./tmp_$wf_dir" 
              
             cp -r ./tmp_$wf_dir/* ./release-artifacts/ 
-            if [ -n "${files_to_cleanup[@]}" ]; then 
-                for item in "${files_to_cleanup[@]}"; do 
-                    if [ -e "./release-artifacts/$item" ]; then 
-                        rm -rf "./release-artifacts/$item" 
-                    fi 
-                done 
-            fi 
             rm -rf "./tmp_$wf_dir" 
           done 
+
 
           find ./release-artifacts -mindepth 2 -type f -exec mv {} ./release-artifacts/ \; 
           find ./release-artifacts -type d -empty -delete 
 
-          echo "Cleanup Windows bullshit ..."
-          rm -f ./release-artifacts/*.dll
-          rm -f ./release-artifacts/*.lib
-          rm -f ./release-artifacts/SFDLSaugerPro.exe
-          rm -rf ./release-artifacts/translations
-          rm -rf ./release-artifacts/platforms
-          rm -rf ./release-artifacts/styles
-          rm -rf ./release-artifacts/imageformats
+          echo "Cleanup Windows bullshit ..." 
+          rm -f ./release-artifacts/*.dll 
+          rm -f ./release-artifacts/*.lib 
+          rm -f ./release-artifacts/SFDLSaugerPro.exe 
+          rm -rf ./release-artifacts/translations 
+          rm -rf ./release-artifacts/platforms 
+          rm -rf ./release-artifacts/styles 
+          rm -rf ./release-artifacts/imageformats 
 
           chmod +x ./release-artifacts/*.AppImage 2>/dev/null || true 
 
