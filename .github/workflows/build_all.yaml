@@ -138,8 +138,9 @@ jobs:
               fi
             fi
 
-            cp -r ./tmp_$wf_dir/* ./release-artifacts/
+            # cp -r ./tmp_$wf_dir/* ./release-artifacts/
             # rm -rf "./tmp_$wf_dir"
+            
             cp -r ./tmp_$wf_dir/* ./release-artifacts/
             if [ -n "${files_to_cleanup[@]}" ]; then
                 for item in "${files_to_cleanup[@]}"; do
