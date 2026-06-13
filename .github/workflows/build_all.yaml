@@ -134,7 +134,10 @@ jobs:
                     one_path_up=$(dirname "$this_path")
                     echo "One path up: $one_path_up"
                     zip -r "../${art_name}.zip" ./*
-                    popd > /dev/null  # Geht zurück in tmp_$wf_dir
+                    echo "back to original path ..."
+                    popd > /dev/null
+                    echo "now on path '$PWD'"
+                    echo "removing path: $this_path"
                     rm -rf "$this_path"
                 fi
                 popd > /dev/null
