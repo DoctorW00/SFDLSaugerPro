@@ -137,6 +137,11 @@ jobs:
           lipo -info build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
       - name: Create DMG package
         run: |
+          # hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
+          # codesign --force --sign "-" build/SFDLSaugerPro.dmg
+          mdutil -i off build/ 2>/dev/null || true
+          sync
+          sleep 3
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
       - name: Extract version from .pro file
