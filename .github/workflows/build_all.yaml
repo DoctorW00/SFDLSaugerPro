@@ -143,12 +143,12 @@ jobs:
 
               echo "ls -lh ..."
               ls -lh
+
+              ZIP_NAME="SFDLSaugerPro-windows-v${APP_VERSION}.zip"
+              zip -r "../release-artifacts/$ZIP_NAME" ./*
               
-              if [ -f "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ]; then
-                cp "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ../release-artifacts/
-              else
-                find . -type f -name "*.zip" -exec cp {} ../release-artifacts/ \; 2>/dev/null || cp -r ./* ../release-artifacts/
-              fi
+              find . -type f -name "*.zip" -exec cp {} ../release-artifacts/ \; 2>/dev/null || cp -r ./* ../release-artifacts/
+              
               popd > /dev/null
             fi
 
