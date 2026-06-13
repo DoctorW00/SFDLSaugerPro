@@ -48,11 +48,11 @@ jobs:
           Categories=Utility;
           EOF
 
-      - name: Extract version from .pro file
-        id: get_version
-        shell: bash
-        run: |
-          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'")
+      - name: Extract version from .pro file 
+        id: get_version 
+        shell: bash 
+        run: | 
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r') 
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Create nfpm.yaml
