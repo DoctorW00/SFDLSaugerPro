@@ -139,13 +139,7 @@ jobs:
               cp -r ./tmp_$wf_dir/* ./release-artifacts/
             else
               echo "Passing through ZIP archive for $wf_name without changes..."
-              pushd "./tmp_$wf_dir" > /dev/null
-              if [ -f "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ]; then
-                cp "SFDLSaugerPro-windows-v${APP_VERSION}.zip" ../release-artifacts/
-              else
-                find . -type f -name "*.zip" -exec cp {} ../release-artifacts/ \; 2>/dev/null || cp -r ./* ../release-artifacts/
-              fi
-              popd > /dev/null
+              find "./tmp_$wf_dir" -type f -name "*.zip" -exec cp {} ./release-artifacts/ \;
             fi
 
             rm -rf "./tmp_$wf_dir"
