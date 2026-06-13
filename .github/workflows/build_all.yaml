@@ -129,15 +129,9 @@ jobs:
                 if [ -d "$art_name" ] && [ ! -f "${art_name}.zip" ]; then
                     echo "Zipping folder $art_name back into a single archive..."
                     pushd "$art_name" > /dev/null
-                    this_path=$(pwd)
-                    echo "This directory: $this_path"
-                    one_path_up=$(dirname "$this_path")
-                    echo "One path up: $one_path_up"
+                    mapfile -t files_to_cleanup < <(find . -mindepth 1 -maxdepth 1 -print)
                     zip -r "../${art_name}.zip" ./*
-                    echo "back to original path ..."
                     popd > /dev/null
-                    echo "now on path '$PWD'"
-                    echo "removing path: $this_path"
                     rm -rf "$this_path"
                 fi
                 popd > /dev/null
@@ -145,6 +139,15 @@ jobs:
             fi
 
             cp -r ./tmp_$wf_dir/* ./release-artifacts/
+            # rm -rf "./tmp_$wf_dir"
+            cp -r ./tmp_$wf_dir/* ./release-artifacts/
+            if [ -n "${files_to_cleanup[@]}" ]; then
+                for item in "${files_to_cleanup[@]}"; do
+                    if [ -e "./release-artifacts/$item" ]; then
+                        rm -rf "./release-artifacts/$item"
+                    fi
+                done
+            fi
             rm -rf "./tmp_$wf_dir"
           done
 
