@@ -97,7 +97,7 @@ jobs:
           echo "Processing artifacts..."
           for item in "${WORKFLOWS[@]}"; do
             IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
-            
+            files_to_cleanup=()
             RUN_ID=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
             
             echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
@@ -132,7 +132,7 @@ jobs:
                     mapfile -t files_to_cleanup < <(find . -mindepth 1 -maxdepth 1 -print)
                     zip -r "../${art_name}.zip" ./*
                     popd > /dev/null
-                    rm -rf "$this_path"
+                    rm -rf "$art_name"
                 fi
                 popd > /dev/null
               fi
@@ -142,10 +142,12 @@ jobs:
             # rm -rf "./tmp_$wf_dir"
             
             cp -r ./tmp_$wf_dir/* ./release-artifacts/
-            if [ -n "${files_to_cleanup[@]}" ]; then
+            if [ "${#files_to_cleanup[@]}" -gt 0 ]; then
                 for item in "${files_to_cleanup[@]}"; do
-                    if [ -e "./release-artifacts/$item" ]; then
-                        rm -rf "./release-artifacts/$item"
+                    # Pfad korrigiert, da mapfile "./datei" liefert und cp -r den Ordnerinhalt flachlegt
+                    clean_path="./release-artifacts/${item#./}"
+                    if [ -e "$clean_path" ]; then
+                        rm -rf "$clean_path"
                     fi
                 done
             fi
