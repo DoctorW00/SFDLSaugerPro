@@ -7,9 +7,6 @@ permissions:
   contents: write
   actions: write
 
-env:
-  PATH: /usr/local/bin:/usr/bin:/bin
-
 jobs:
   orchestrate:
     runs-on: ubuntu-latest
@@ -23,18 +20,11 @@ jobs:
         run: |
           VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "GITHUB_REF_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
 
       - name: Process All Workflows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-        shell: bash
         run: |
-          set -euo pipefail
-
-          export GITHUB_TOKEN="$GH_TOKEN"
-
           WORKFLOWS=(
             "Build Linux AppImage x86_64 Qt5 C++;linux_x64_appimage;true;"
             "Build Linux AppImage ARM64 Qt5 C++;linux_arm64_appimage;true;"
@@ -50,13 +40,12 @@ jobs:
           TRIGGERED_WORKFLOWS=()
           for item in "${WORKFLOWS[@]}"; do
             IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
-            # dedupe by name
-            if [[ ! " ${TRIGGERED_WORKFLOWS[*]} " =~ " ${wf_name} " ]]; then
-              gh workflow run "$wf_name" --ref "$GITHUB_REF_NAME"
+            if [[ ! " ${TRIGGERED_WORKFLOWS[@]} " =~ " ${wf_name} " ]]; then
+              gh workflow run "$wf_name" --ref ${{ github.ref_name }}
               TRIGGERED_WORKFLOWS+=("$wf_name")
             fi
           done
-
+          
           echo "Waiting 20 seconds for GitHub to register new runs..."
           sleep 20
 
@@ -69,16 +58,16 @@ jobs:
 
             for item in "${WORKFLOWS[@]}"; do
               IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
+              
+              RUN_DATA=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json status,conclusion)
+              
+              STATUS=$(echo "$RUN_DATA" | jq -r '.[0].status')
+              CONCLUSION=$(echo "$RUN_DATA" | jq -r '.[0].conclusion')
 
-              RUN_DATA=$(gh run list --workflow="$wf_name" --branch="$GITHUB_REF_NAME" --event=workflow_dispatch --limit 1 --json status,conclusion 2>/dev/null || echo "[]")
-
-              STATUS=$(echo "$RUN_DATA" | jq -r '.[0].status // empty' || true)
-              CONCLUSION=$(echo "$RUN_DATA" | jq -r '.[0].conclusion // empty' || true)
-
-              if [ -z "$STATUS" ] || [ "$STATUS" = "null" ]; then
+              if [ "$STATUS" = "null" ] || [ -z "$STATUS" ]; then
                 STATUS="unknown"
               fi
-              if [ -z "$CONCLUSION" ] || [ "$CONCLUSION" = "null" ]; then
+              if [ "$CONCLUSION" = "null" ] || [ -z "$CONCLUSION" ]; then
                 CONCLUSION="pending"
               fi
 
@@ -106,57 +95,55 @@ jobs:
           done
 
           echo "Processing artifacts..."
-          shopt -s nullglob
-
           for item in "${WORKFLOWS[@]}"; do
             IFS=";" read -r wf_name wf_dir unzip_flag art_name <<< "$item"
-
-            RUN_ID=$(gh run list --workflow="$wf_name" --branch="$GITHUB_REF_NAME" --event=workflow_dispatch --limit 1 --json id --jq '.[0].id' 2>/dev/null || echo "")
-            if [ -z "$RUN_ID" ]; then
-              echo "No run id for $wf_name; skipping."
-              continue
-            fi
-
-            TMPDIR="./tmp_$wf_dir"
-            echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to $TMPDIR..."
-            rm -rf "$TMPDIR"
-            mkdir -p "$TMPDIR"
-
-            gh run download "$RUN_ID" --dir "$TMPDIR" || { echo "Download failed for $wf_name (run $RUN_ID)"; exit 1; }
-
-            echo "Contents of $TMPDIR:"
-            ls -la "$TMPDIR" || true
+            
+            RUN_ID=$(gh run list --workflow="$wf_name" --branch="${{ github.ref_name }}" --event=workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
+            
+            echo "Downloading artifacts for '$wf_name' (Run: $RUN_ID) to ./tmp_$wf_dir..."
+            mkdir -p "./tmp_$wf_dir"
+            
+            gh run download "$RUN_ID" --dir "./tmp_$wf_dir"
 
             if [ "$unzip_flag" = "true" ]; then
               echo "Unzipping files for $wf_name..."
-              shopt -s nullglob
-              for zipfile in "$TMPDIR"/*.zip; do
-                [ -f "$zipfile" ] || continue
-                unzip -o "$zipfile" -d "$TMPDIR"
-                rm -f "$zipfile"
-              done
-              shopt -u nullglob
+              cd "./tmp_$wf_dir"
+              if [ -n "$art_name" ]; then
+                if [ -f "${art_name}.zip" ]; then
+                  unzip -o "${art_name}.zip"
+                  rm "${art_name}.zip"
+                fi
+              else
+                for zipfile in *.zip; do
+                  if [ -f "$zipfile" ]; then
+                    unzip -o "$zipfile"
+                    rm "$zipfile"
+                  fi
+                done
+              fi
+              cd - > /dev/null
             else
               if [ -n "$art_name" ]; then
-                if [ -d "$TMPDIR/$art_name" ] && [ ! -f "$TMPDIR/${art_name}.zip" ]; then
+                cd "./tmp_$wf_dir"
+                find . -type f -name "*.zip" ! -name "${art_name}.zip" -delete 2>/dev/null || true
+                if [ -d "$art_name" ] && [ ! -f "${art_name}.zip" ]; then
                   echo "Zipping folder $art_name back into a single archive..."
-                  (cd "$TMPDIR/$art_name" && zip -r "../${art_name}.zip" ./*) || { echo "zip failed for $art_name"; exit 1; }
-                  rm -rf "$TMPDIR/$art_name"
-                elif [ -f "$TMPDIR/${art_name}.zip" ]; then
-                  echo "Archive already exists: $TMPDIR/${art_name}.zip"
-                else
-                  echo "Warning: neither folder nor zip '$art_name' found in $TMPDIR; listing:"
-                  ls -la "$TMPDIR"
+                  cd "$art_name"
+                  echo "This directory: '$PWD'"
+                  zip -r "../${art_name}.zip" ./*
+                  cd "./tmp_$wf_dir"
+                  rm -rf "$art_name"
                 fi
+                cd - > /dev/null
               fi
             fi
 
-            cp -r "$TMPDIR"/* ./release-artifacts/ 2>/dev/null || true
-            rm -rf "$TMPDIR"
+            cp -r ./tmp_$wf_dir/* ./release-artifacts/
+            rm -rf "./tmp_$wf_dir"
           done
 
-          find ./release-artifacts -mindepth 2 -type f -exec mv {} ./release-artifacts/ \; 2>/dev/null || true
-          find ./release-artifacts -type d -empty -delete 2>/dev/null || true
+          find ./release-artifacts -mindepth 2 -type f -exec mv {} ./release-artifacts/ \;
+          find ./release-artifacts -type d -empty -delete
 
           chmod +x ./release-artifacts/*.AppImage 2>/dev/null || true
 
@@ -174,8 +161,8 @@ jobs:
               echo "Would upload: $(basename "$file")"
             fi
           done
+          
           # gh release create "$TAG_NAME" ./release-artifacts/* \
           #   --title "Release $TAG_NAME" \
           #   --generate-notes \
-          #   --target "$GITHUB_REF_NAME"
-
+          #   --target ${{ github.ref_name }}
