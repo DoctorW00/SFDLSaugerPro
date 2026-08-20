@@ -3,8 +3,6 @@ on:
   workflow_dispatch:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "false"
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   APP_VERSION: ""
 
 jobs:
@@ -22,8 +20,8 @@ jobs:
           arch: 'win64_msvc2019_64' 
           cache: true
 
-      - name: Setup MSVC Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Setup MSVC Development Environment
+        uses: microsoft/setup-msbuild@v2
 
       - name: Install OpenSSL
         run: |
@@ -33,7 +31,9 @@ jobs:
         shell: cmd
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
-          cd qtftp\src\qftp
+          cd qtftp
+          perl "%QT_PLUGIN_PATH%\..\..\bin\syncqt.pl" -version 5.15.2
+          cd src\qftp
           qmake
           nmake
           nmake install
