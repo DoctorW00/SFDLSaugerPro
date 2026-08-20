@@ -33,7 +33,7 @@ jobs:
       - name: Build and Install qtftp Library
         shell: cmd
         run: |
-          git clone git clone https://github.com/DoctorW00/qtftp.git
+          git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
           perl "${{ steps.qt.outputs.qt_dir }}\bin\syncqt.pl" -version 5.15.2
           cd src\qftp
