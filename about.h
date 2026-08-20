@@ -17,7 +17,7 @@ class About : public QDialog
     Q_OBJECT
 
 public:
-    explicit About(QWidget *parent = 0);
+    explicit About(QWidget *parent = nullptr);
     ~About();
     bool _mediaPlayer;
 
@@ -34,10 +34,19 @@ protected:
 
 private:
     Ui::About *ui;
+
+    /*
     QMediaPlayer *player = new QMediaPlayer(this);
     QMediaPlaylist *playlist = new QMediaPlaylist(this);
     QMovie *movie = new QMovie(this);
     QLabel *processLabel = new QLabel(this);
+    */
+
+    QMediaPlayer *player = nullptr;
+    QMediaPlaylist *playlist = nullptr;
+    QMovie *movie = nullptr;
+    QLabel *processLabel = nullptr;
+
 };
 
 #endif // ABOUT_H

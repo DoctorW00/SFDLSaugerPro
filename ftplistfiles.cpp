@@ -108,6 +108,9 @@ void FTPListFiles::ftpCommandStarted(int id)
 
 void FTPListFiles::ftpCommandFinished(int commandId, bool error)
 {
+    Q_UNUSED(commandId);
+    Q_UNUSED(error);
+
     QString commandName;
     QString extraInfo;
     QFtp::Command cmd = ftp->currentCommand();
@@ -153,8 +156,9 @@ void FTPListFiles::ftpCommandFinished(int commandId, bool error)
 }
 
 void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
-                           QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data)
-{
+                           QString proxyHost, QString proxyPort, QString proxyUser,
+                           QString proxyPass, QStringList data, int timeout)
+{   
     // set proxy
     if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
     {
@@ -200,7 +204,16 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
 
     m_hasErrorOccurred = false;
 
-    getFTPIndex(baseIP, basePort, baseUser, basePass, basePath);
+    if(timeout > 0)
+    {
+        ftp_timeout = timeout * 1000;
+    }
+    else
+    {
+        ftp_timeout = 0;
+    }
+
+    getFTPIndex(baseIP, basePort, baseUser, basePass, basePath, ftp_timeout);
 
     if(m_hasErrorOccurred)
     {
@@ -211,15 +224,18 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
     emit sendFTPData(data, fileList);
 }
 
-void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path)
+void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path, int timeout)
 {
     basePath = path;
     emit sendLogText(baseSFDL + tr(": Lade Inhalt von Pfad: ") + basePath);
 
     setFTP();
 
-    timer->setSingleShot(true);
-    timer->start(30000);
+    if(timeout > 0)
+    {
+        timer->setSingleShot(true);
+        timer->start(timeout);
+    }
 
     loop->connect(ftp, SIGNAL(done(bool)), loop, SLOT(quit()));
 
@@ -236,7 +252,7 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
 
     if(timer)
     {
-        timer->stop();
+        if(timeout > 0) timer->stop();
         timer->deleteLater();
         timer = nullptr;
     }
@@ -258,7 +274,7 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
     while(!pathList.isEmpty())
     {
         QString getPath = pathList.takeFirst();
-        getFTPIndex(baseIP, basePort, baseUser, basePass, getPath);
+        getFTPIndex(baseIP, basePort, baseUser, basePass, getPath, timeout);
     }
 }
 

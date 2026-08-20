@@ -19,7 +19,8 @@ public:
 
 public slots:
     void ftpList(QString ip, int port, QString user, QString pass, QString path,
-                 QString proxyHost, QString proxyPort, QString proxyUser, QString proxyPass, QStringList data);
+                 QString proxyHost, QString proxyPort, QString proxyUser,
+                 QString proxyPass, QStringList data, int timeout);
 
 private slots:
     void setFTP();
@@ -30,7 +31,7 @@ private slots:
     void ftpstateChanged(int state);
     void doListInfo(const QUrlInfo& info);
     void isDone(bool);
-    void getFTPIndex(QString ip, int port, QString user, QString pass, QString path);
+    void getFTPIndex(QString ip, int port, QString user, QString pass, QString path, int timeout);
 
 signals:
     void sendWarning(QString label, QString text);
@@ -52,6 +53,7 @@ private:
     QNetworkProxy proxy;
     QString lastCdPath;
     bool m_hasErrorOccurred;
+    int ftp_timeout = 30000;
 
 };
 

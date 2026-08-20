@@ -6,6 +6,15 @@ About::About(QWidget *parent) : QDialog(parent), ui(new Ui::About)
 {
     ui->setupUi(this);
 
+    player = new QMediaPlayer(this);
+    playlist = new QMediaPlaylist(this);
+    movie = new QMovie(":/gfx/koala.gif", QByteArray(), this);
+
+    processLabel = new QLabel(this);
+    processLabel->setMovie(movie);
+    processLabel->setFixedHeight(144);
+    ui->gridLayout->addWidget(processLabel);
+
     ui->label_3->setMinimumSize(0, 0);
     ui->label_3->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     ui->label_3->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
@@ -25,22 +34,19 @@ About::About(QWidget *parent) : QDialog(parent), ui(new Ui::About)
 
 void About::playMedia()
 {
+    disconnect(player, SIGNAL(positionChanged(qint64)), this, SLOT(audioPositionChanged(qint64)));
     connect(player, SIGNAL(positionChanged(qint64)), this, SLOT(audioPositionChanged(qint64)));
 
-    playlist->addMedia(QUrl("qrc:/snd/koala.mp3"));
-    playlist->setPlaybackMode(QMediaPlaylist::Loop);
+    if(playlist->isEmpty())
+    {
+        playlist->addMedia(QUrl("qrc:/snd/koala.mp3"));
+        playlist->setPlaybackMode(QMediaPlaylist::Loop);
+        player->setPlaylist(playlist);
+    }
 
-    player->setPlaylist(playlist);
     player->setPosition(0);
-    player->setVolume(50);
+    player->setVolume(ui->lautleise->value());
     player->play();
-
-    movie = new QMovie(":/gfx/koala.gif");
-    processLabel = new QLabel(this);
-    processLabel->setMovie(movie);
-    processLabel->setFixedHeight(144);
-
-    ui->gridLayout->addWidget(processLabel);
 
     movie->start();
 
@@ -68,7 +74,6 @@ void About::closeEvent(QCloseEvent *e)
 
     player->stop();
     movie->stop();
-    processLabel->clear();
     _mediaPlayer = false;
 }
 

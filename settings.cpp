@@ -54,6 +54,11 @@ Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
     ui->box_webserver_list_ip->model()->sort(0, Qt::AscendingOrder);
     connect(ui->box_webserver_list_ip, &QComboBox::textActivated, this, &Settings::onIpChanged);
 
+    // ftp timeout
+    ui->spin_ftp_timeout->setMinimum(0);
+    ui->spin_ftp_timeout->setMaximum(999999999);
+    ui->spin_ftp_timeout->setSingleStep(1);
+
     // speedlimit
     ui->spin_speedlimit->setMinimum(0);
     ui->spin_speedlimit->setMaximum(2000000);
@@ -231,6 +236,10 @@ void Settings::loadSettings()
     _shutdown_pc = config.value("shutdown_pc", false).toBool();
     ui->chk_shutdown_pc->setChecked(_shutdown_pc);
     _downloadPath = config.value("downloadPath").toString();
+    _ftpRetry = config.value("ftpRetry", true).toBool();
+    ui->chk_ftp_retry->setChecked(_ftpRetry);
+    _ftpTimeout = config.value("ftpTimeout", 30).toInt();
+    ui->spin_ftp_timeout->setValue(_ftpTimeout);
     ui->line_openDownloadPath->setText(_downloadPath);
     _speedLimitKB = config.value("speedlimit", 0).toLongLong();
     _globalSpeedLimitBytes = _speedLimitKB * 1024;
@@ -484,6 +493,9 @@ void Settings::saveSettings()
     _downloadPath = ui->line_openDownloadPath->text();
     config.setValue("flatDownloads", ui->chk_flatDownloads->checkState());
     _flatDownloads = ui->chk_flatDownloads->checkState();
+    config.setValue("ftpRetry", ui->chk_ftp_retry->checkState());
+    _ftpTimeout = ui->spin_ftp_timeout->value();
+    config.setValue("ftpTimeout", _ftpTimeout);
     _speedLimitKB = ui->spin_speedlimit->value();
     config.setValue("speedlimit", _speedLimitKB);
     config.setValue("lastSFDLpath", _lastSFDLpath);

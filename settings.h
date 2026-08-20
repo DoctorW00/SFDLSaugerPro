@@ -58,6 +58,8 @@ public:
     QString _ftpProxyPort;
     QString _ftpProxyUser;
     QString _ftpProxyPass;
+    int _ftpTimeout = 30;
+    bool _ftpRetry = true;
     QStringList _excludeFilesFromDownload;
     bool _play_sound_finish = false;
     bool _sfdl_move_file_to_download = false;

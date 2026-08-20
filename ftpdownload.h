@@ -99,6 +99,7 @@ public:
     bool _working;
     int _tableRow = -1;
     QString _id;
+    int ftpTimeout = 30000;
 
     // chunk downloads
     int m_chunkIndex;

@@ -1,5 +1,7 @@
 QT += core widgets gui network ftp xml multimedia
 
+VERSION = 1.6.1
+
 win32 {
     QT += winextras
 }
@@ -93,7 +95,6 @@ win32 {
 # <- unrar end
 
 CONFIG += C++14 crypto thread
-VERSION = 1.6.0
 
 QMAKE_TARGET_COMPANY = "GrafSauger"
 QMAKE_TARGET_PRODUCT = "SFDLSauger Pro"

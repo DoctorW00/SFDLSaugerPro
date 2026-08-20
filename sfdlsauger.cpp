@@ -83,7 +83,7 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
 
         auto quitAction = new QAction(tr("Beenden"), this);
         quitAction->setIcon(QIcon(":/gfx/quit.png"));
-        connect(quitAction, SIGNAL(triggered()), this, SLOT(close()));
+        connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
         menu->addAction(quitAction);
     }
 
@@ -446,7 +446,8 @@ void SFDLSauger::chkSFDLData(QStringList data, QStringList files)
                          settingsWindow->_ftpProxyPort,
                          settingsWindow->_ftpProxyUser,
                          settingsWindow->_ftpProxyPass,
-                         data
+                         data,
+                         settingsWindow->_ftpTimeout
                          );
 
         listFTP->moveToThread(thread);
@@ -491,7 +492,6 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
 
     // status table
     status_tbl = allTableWidgets[2];
-    // status_tbl->setColumnCount(18);
     status_tbl->setColumnCount(19);
     status_tbl->setRowCount(1);
     status_tbl->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -1347,9 +1347,11 @@ void SFDLSauger::startDownload(QString tabID)
 
         int fileStatus = widget3->item(i, 7)->text().toInt();
 
-        if((widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 0)
-        || (widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 3)
-        || (widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 9)
+        // fileStatus: 1 = loading, 10 = done
+        if((widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 0) // idle (waiting)
+        || (widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 2) // error
+        || (widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 3) // unknown error
+        || (widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 9) // user abort
         )
         {
             QString fullDownloadPath = settingsWindow->_downloadPath + id;
@@ -1412,7 +1414,8 @@ void SFDLSauger::startDownload(QString tabID)
                 downloadList << id << host << port << user << pass << ftpDir
                              << fullDownloadPath << fileName << QString::number(i)
                              << settingsWindow->_ftpProxyHost << settingsWindow->_ftpProxyPort
-                             << settingsWindow->_ftpProxyUser << settingsWindow->_ftpProxyPass;
+                             << settingsWindow->_ftpProxyUser << settingsWindow->_ftpProxyPass
+                             << QString::number(settingsWindow->_ftpTimeout);
 
                 auto thread = new QThread;
                 auto worker = new FTPDownload(downloadList);
@@ -1453,7 +1456,10 @@ void SFDLSauger::stopDownload()
     int tabIndex = ui->tabWidget->currentIndex();
     QString id = ui->tabWidget->tabToolTip(tabIndex);
 
-    addLogText(id + tr(": Download abgebrochen!"));
+    if(!allDownloadsDone(id))
+    {
+        addLogText(id + tr(": Download abgebrochen!"));
+    }
 
     bool isChuckedDownload = false;
 
@@ -1548,7 +1554,7 @@ void SFDLSauger::stopDownload()
                 QString fullFilePath = QDir::toNativeSeparators(donloadPath);
 
                 QTimer::singleShot(1500, this, [this, id, fullFilePath, fimeName]() {
-                    if (QFile::exists(fullFilePath))
+                    if(QFile::exists(fullFilePath))
                     {
                         if (QFile::remove(fullFilePath))
                         {
@@ -1619,12 +1625,12 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
         g_lastProgressUpdate = currentMSecs;
 
         int progress = 0;
-        if (total > 0)
+        if(total > 0)
         {
             progress = static_cast<int>((read * 100) / total);
         }
 
-        if (overwriteTime && progress >= 100)
+        if(overwriteTime && progress >= 100)
         {
             QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(nRow));
             if(PROGBAR) progress = PROGBAR->value();
@@ -1799,7 +1805,7 @@ void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statu
 
     int remainingChunks = widget2->item(nRow, 7)->data(Qt::UserRole).toInt();
 
-    if(status == 9 || status == 10)
+    if(status == 9 || status == 10 || status == 2 || status == 3)
     {
         g_runningDownloads--;
         g_tabDownloads[tabID]--;
@@ -1868,6 +1874,17 @@ void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statu
 
         startDownload(tabID);
     }
+
+    // retry on error
+    if(settingsWindow->_ftpRetry)
+    {
+        if(status == 2 || status == 3)
+        {
+            QTimer::singleShot(3000, [this, tabID]() {
+                startDownload(tabID);
+            });
+        }
+    }
 }
 
 // returns true if all downloads in a tab are done
@@ -1886,6 +1903,8 @@ bool SFDLSauger::allDownloadsDone(QString id)
             }
         }
     }
+
+    m_taskbarProgress->clearProgress();
 
     return true;
 }
@@ -2373,6 +2392,9 @@ void SFDLSauger::chkForExisitingFiles(QString id = "")
 
                     widget2->item(i, 12)->setText(QString::number(currentFileSize));
                     updateDownloadProgress(id, i, totalFileSize, totalFileSize, true, true);
+
+                    QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(i));
+                    if(PROGBAR) PROGBAR->setValue(100);
                 }
                 else
                 {
