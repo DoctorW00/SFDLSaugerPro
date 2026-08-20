@@ -25,6 +25,8 @@ jobs:
 
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: '14.29'
 
       - name: Install OpenSSL
         run: |
@@ -54,7 +56,7 @@ jobs:
       - name: Build Application
         shell: cmd
         run: |
-          qmake
+          qmake CONFIG+=release "QMAKE_CXXFLAGS += /std:c++14 /permissive"
           nmake
 
       - name: Deploy Qt Dependencies (windeployqt)
