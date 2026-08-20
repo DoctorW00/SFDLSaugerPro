@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
 
 env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "false"
   APP_VERSION: ""
 
 jobs:
@@ -15,13 +17,14 @@ jobs:
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
+        id: qt
         with:
           version: '5.15.2'
           arch: 'win64_msvc2019_64' 
           cache: true
 
-      - name: Setup MSVC Development Environment
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install OpenSSL
         run: |
@@ -30,9 +33,9 @@ jobs:
       - name: Build and Install qtftp Library
         shell: cmd
         run: |
-          git clone https://github.com/DoctorW00/qtftp.git
+          git clone https://github.com
           cd qtftp
-          perl "%QT_PLUGIN_PATH%\..\..\bin\syncqt.pl" -version 5.15.2
+          perl "${{ steps.qt.outputs.qt_dir }}\bin\syncqt.pl" -version 5.15.2
           cd src\qftp
           qmake
           nmake
