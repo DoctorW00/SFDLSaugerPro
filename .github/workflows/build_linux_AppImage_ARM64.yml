@@ -36,7 +36,7 @@ jobs:
 
       - name: Build ftplib
         run: |
-          git clone https://github.com
+          git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp/src/qftp
           qmake CONFIG+=release QMAKE_CXXFLAGS+="-Wno-unused-argument -Wno-unused-parameter"
           make -j$(nproc)
