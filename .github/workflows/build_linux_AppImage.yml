@@ -1,12 +1,6 @@
 name: Build Linux AppImage x86_64 Qt5 C++
 
 on:
-  #push:
-  #  branches:
-  #    - main
-  #pull_request:
-  #  branches:
-  #    - main
   workflow_dispatch:
 
 env:
@@ -18,18 +12,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential ninja-build qtbase5-dev qtbase5-dev-tools qttools5-dev-tools \
-            libqt5multimedia5 qtmultimedia5-dev qt5-qmake libqt5core5a \
-            libqt5gui5 libqt5widgets5 libqt5multimedia5-plugins libqt5svg5-dev \
-            libqt5xml5 libgl1-mesa-dev gstreamer1.0-plugins-base \
+            build-essential ninja-build \
+            libgl1-mesa-dev gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-alsa \
             wget fuse libfuse2 squashfs-tools libarchive-dev cmake git llvm \
             gzip findutils libgcc-9-dev libgles-dev libglib2.0-dev \
             libglib2.0-dev-bin libglvnd-dev libglx-dev --allow-downgrades
+
+      - name: Install Specific Qt Version
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '5.15.16'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          modules: 'qtmultimedia'
+
       - name: Download AppImage Tools
         run: |
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
@@ -37,6 +40,7 @@ jobs:
           wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage linuxdeploy-plugin-gstreamer.sh
           sudo mv linuxdeploy-plugin-gstreamer.sh /usr/local/bin/linuxdeploy-plugin-gstreamer
+
       - name: Build ftplib
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
@@ -44,16 +48,19 @@ jobs:
           qmake
           make
           sudo make install
+
       - name: Build unrar library
         run: |
           cd unrar
           make lib
+
       - name: Build C++ with Qt5
         run: |
           mkdir build
           cd build
           qmake ../ QMAKE_CXXFLAGS+="-Wno-unused-argument -Wno-unused-parameter"
           make
+
       - name: Create .desktop file and AppDir Structure
         run: |
           mkdir -p SFDLSaugerPro.AppDir/usr/bin
@@ -71,15 +78,17 @@ jobs:
           cp build/SFDLSaugerPro SFDLSaugerPro.AppDir/usr/bin/SFDLSaugerPro
           cp unrar/libunrar.so SFDLSaugerPro.AppDir/usr/lib/libunrar.so
           cp icon.png SFDLSaugerPro.AppDir/usr/share/icons/hicolor/512x512/apps/SFDLSaugerPro.png
+
       - name: Extract version from .pro file
         id: get_version
         shell: bash
         run: |
           VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Create AppImage
         env:
-          QMAKE: /usr/lib/qt5/bin/qmake
+          QMAKE: ${{ env.QT_PLUGIN_PATH }}/../bin/qmake
           EXTRA_QT_PLUGINS: multimedia
         run: |
           ./linuxdeploy-x86_64.AppImage \
@@ -88,10 +97,12 @@ jobs:
             --plugin qt \
             --plugin gstreamer \
             --output appimage
+
       - name: Upload AppImage as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro-v${{ env.APP_VERSION }}-x86_64.AppImage
           path: 'SFDLSaugerPro*.AppImage'
+
 
 
