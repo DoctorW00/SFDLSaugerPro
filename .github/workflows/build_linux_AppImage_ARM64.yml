@@ -28,9 +28,9 @@ jobs:
 
       - name: Download AppImage Tools
         run: |
-          wget https://github.com
-          wget https://githubusercontent.com
-          wget https://github.com
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-aarch64.AppImage
+          wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gstreamer/refs/heads/master/linuxdeploy-plugin-gstreamer.sh
+          wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-aarch64.AppImage
           chmod +x linuxdeploy-aarch64.AppImage linuxdeploy-plugin-qt-aarch64.AppImage linuxdeploy-plugin-gstreamer.sh
           sudo mv linuxdeploy-plugin-gstreamer.sh /usr/local/bin/linuxdeploy-plugin-gstreamer
 
