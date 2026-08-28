@@ -27,7 +27,7 @@ jobs:
       - name: Install Specific Qt Version
         uses: jurplel/install-qt-action@v3
         with:
-          version: '5.15.16'
+          version: '5.15.2'
           host: 'linux'
           target: 'desktop'
           arch: 'gcc_64'
