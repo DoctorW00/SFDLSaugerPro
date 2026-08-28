@@ -17,32 +17,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential ninja-build \
-            libgl1-mesa-dev gstreamer1.0-plugins-base \
+            build-essential ninja-build qtbase5-dev qtbase5-dev-tools qttools5-dev-tools \
+            libqt5multimedia5 qtmultimedia5-dev qt5-qmake libqt5core5a \
+            libqt5gui5 libqt5widgets5 libqt5multimedia5-plugins libqt5svg5-dev \
+            libqt5xml5 libgl1-mesa-dev gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-alsa \
             wget fuse libfuse2 squashfs-tools libarchive-dev cmake git llvm \
             gzip findutils libgcc-9-dev libgles-dev libglib2.0-dev \
             libglib2.0-dev-bin libglvnd-dev libglx-dev --allow-downgrades
 
-      - name: Install Specific Qt Version
-        uses: jurplel/install-qt-action@v3
-        with:
-          version: '5.15.2'
-          host: 'linux'
-          target: 'desktop'
-          arch: 'gcc_arm64'
-
       - name: Download AppImage Tools
         run: |
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-aarch64.AppImage
-          wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gstreamer/refs/heads/master/linuxdeploy-plugin-gstreamer.sh
-          wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-aarch64.AppImage
+          wget https://github.com
+          wget https://githubusercontent.com
+          wget https://github.com
           chmod +x linuxdeploy-aarch64.AppImage linuxdeploy-plugin-qt-aarch64.AppImage linuxdeploy-plugin-gstreamer.sh
           sudo mv linuxdeploy-plugin-gstreamer.sh /usr/local/bin/linuxdeploy-plugin-gstreamer
 
       - name: Build ftplib
         run: |
-          git clone https://github.com/DoctorW00/qtftp.git
+          git clone https://github.com
           cd qtftp/src/qftp
           qmake CONFIG+=release QMAKE_CXXFLAGS+="-Wno-unused-argument -Wno-unused-parameter"
           make -j$(nproc)
@@ -80,7 +74,8 @@ jobs:
 
       - name: Create AppImage
         env:
-          QMAKE: ${{ env.QT_ROOT_DIR }}/bin/qmake
+          QMAKE: /usr/lib/qt5/bin/qmake
+          QT_PLUGIN_PATH: /usr/lib/aarch64-linux-gnu/qt5/plugins
           EXTRA_QT_PLUGINS: multimedia
         run: |
           ./linuxdeploy-aarch64.AppImage \
@@ -102,5 +97,6 @@ jobs:
         with:
           name: SFDLSaugerPro-v${{ env.APP_VERSION }}-aarch64.AppImage
           path: 'SFDLSaugerPro*.AppImage'
+
 
 
