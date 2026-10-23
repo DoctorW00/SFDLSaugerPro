@@ -1,6 +1,7 @@
 #include "sfdl.h"
 #include "ftplistfiles.h"
 #include "sfdlsauger.h"
+#include <QSharedPointer>
 #include "ui_sfdlsauger.h"
 #include "commandworker.h"
 
@@ -290,6 +291,7 @@ void SFDLSauger::startDownloadButton()
 
     addLogText(id + tr(": Starte Download ..."));
 
+    m_stoppedTabs.remove(id);
     swapStartStopButton(id);
     changeCHKBOX(id, true);
     startDownload(id);
@@ -437,20 +439,28 @@ void SFDLSauger::chkSFDLData(QStringList data, QStringList files)
         connect(listFTP, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
         connect(listFTP, SIGNAL(sendFTPData(QStringList,QStringList)), this, SLOT(getSFDLData(QStringList,QStringList)));
 
-        listFTP->ftpList(data.at(7).split("|").at(1),           // host
-                         data.at(8).split("|").at(1).toInt(),   // port
-                         data.at(9).split("|").at(1),           // user
-                         data.at(10).split("|").at(1),          // pass
-                         data.at(21).split("|").at(1),          // path
-                         settingsWindow->_ftpProxyHost,
-                         settingsWindow->_ftpProxyPort,
-                         settingsWindow->_ftpProxyUser,
-                         settingsWindow->_ftpProxyPass,
-                         data,
-                         settingsWindow->_ftpTimeout
-                         );
+        const QString ftpHost  = data.at(7).split("|").at(1);
+        const int     ftpPort  = data.at(8).split("|").at(1).toInt();
+        const QString ftpUser  = data.at(9).split("|").at(1);
+        const QString ftpPass  = data.at(10).split("|").at(1);
+        const QString ftpPath  = data.at(21).split("|").at(1);
+        const QString pHost    = settingsWindow->_ftpProxyHost;
+        const QString pPort    = settingsWindow->_ftpProxyPort;
+        const QString pUser    = settingsWindow->_ftpProxyUser;
+        const QString pPass    = settingsWindow->_ftpProxyPass;
+        const int     ftpTo    = settingsWindow->_ftpTimeout;
 
         listFTP->moveToThread(thread);
+
+        connect(thread, &QThread::started, listFTP, [=]() {
+            listFTP->ftpList(ftpHost, ftpPort, ftpUser, ftpPass, ftpPath,
+                             pHost, pPort, pUser, pPass, data, ftpTo);
+            thread->quit();
+        });
+
+        connect(thread, &QThread::finished, listFTP, &QObject::deleteLater);
+        connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+
         thread->start();
     }
     else
@@ -1354,6 +1364,12 @@ void SFDLSauger::startDownload(QString tabID)
         || (widget3->item(i, 0)->checkState() == Qt::Checked && fileStatus == 9) // user abort
         )
         {
+            if(rowHasActiveWorker(id, i))
+            {
+                m_pendingRestart.insert(id);
+                continue;
+            }
+
             QString fullDownloadPath = settingsWindow->_downloadPath + id;
             if(!fullDownloadPath.endsWith("/")) fullDownloadPath += "/";
 
@@ -1389,8 +1405,20 @@ void SFDLSauger::startDownload(QString tabID)
                 }
             }
 
-            // save chunk count
+            // save chunk count (UserRole = noch offene Chunks, UserRole+1 = Gesamtzahl)
             widget3->item(i, 7)->setData(Qt::UserRole, chunksToUse);
+            widget3->item(i, 7)->setData(Qt::UserRole + 1, chunksToUse);
+
+            const QString rowKey = id + "|" + QString::number(i);
+            m_rowSessions.remove(rowKey);
+            m_lastRowUpdate.remove(rowKey);
+
+            if(chunksToUse > 1)
+            {
+                // Chunk-Downloads starten immer bei 0 (Datei wird neu angelegt)
+                widget3->item(i, 12)->setText("0");
+                widget3->item(i, 12)->setData(Qt::UserRole, QVariant());
+            }
 
             QString fullFilePath = QDir::toNativeSeparators(fullDownloadPath + "/" + fileName);
 
@@ -1435,13 +1463,26 @@ void SFDLSauger::startDownload(QString tabID)
                 connect(worker, SIGNAL(error(QString)), this, SLOT(downloadError(QString)));
                 connect(worker, SIGNAL(sendLogText(QString)), this, SLOT(addLogText(QString)));
                 connect(worker, SIGNAL(doChunkProgress(QString,int,int,qint64,qint64)), this, SLOT(updateChunkedDownloadProgress(QString,int,int,qint64,qint64)));
+                connect(worker, SIGNAL(chunkFinished(QString,int,int)), this, SLOT(onChunkFinished(QString,int,int)));
                 connect(thread, SIGNAL(started()), worker, SLOT(process()));
                 connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+
+                connect(thread, &QThread::finished, this, [this, worker, thread, id]() {
+                    thread->wait();
+                    g_Worker.removeAll(worker);
+                    delete worker;
+                    thread->deleteLater();
+
+                    if(m_pendingRestart.remove(id))
+                    {
+                        startDownload(id);
+                    }
+                });
 
                 thread->start();
 
                 g_runningDownloads++;
-                updateDownloadFileStatus(tabID, i, tr("Wird geladen ..."), 1);
+                updateDownloadFileStatus(id, i, tr("Wird geladen ..."), 1);
                 currentOffset = worker->m_chunkEnd;
             }
 
@@ -1456,148 +1497,118 @@ void SFDLSauger::stopDownload()
     int tabIndex = ui->tabWidget->currentIndex();
     QString id = ui->tabWidget->tabToolTip(tabIndex);
 
+    m_pendingRestart.remove(id);
+    m_stoppedTabs.insert(id);
+
     if(!allDownloadsDone(id))
     {
         addLogText(id + tr(": Download abgebrochen!"));
     }
 
-    bool isChuckedDownload = false;
+    QSet<int> abortedRows;
+    QSet<int> chunkedRows;
+    QHash<int, QString> chunkedFiles;
+    QHash<QString, QSharedPointer<int>> removeCounters;
+    int releasedSlots = 0;
 
-    QMutableListIterator<FTPDownload*> it(g_Worker);
-    while(it.hasNext())
+    for(FTPDownload *w : qAsConst(g_Worker))
     {
-        FTPDownload* w = it.next();
+        if(!w || w->_id != id) continue;
 
-        if(!w)
+        QThread *t = w->thread();
+        if(!t || !t->isRunning()) continue;
+
+        disconnect(w, nullptr, this, nullptr);
+
+        abortedRows.insert(w->_tableRow);
+        releasedSlots++;
+
+        if(w->m_isChunked)
         {
-            it.remove();
-            continue;
-        }
+            chunkedRows.insert(w->_tableRow);
+            chunkedFiles.insert(w->_tableRow, w->filePath());
 
-        if(id == w->_id)
-        {
-            disconnect(w, nullptr, this, nullptr);
+            QSharedPointer<int> &counter = removeCounters[w->filePath()];
+            if(counter.isNull()) counter = QSharedPointer<int>::create(0);
+            ++(*counter);
 
-            if(w->thread() && w->thread()->isRunning())
-            {
-                if(w->_working)
+            const QString path = w->filePath();
+            const QSharedPointer<int> cnt = counter;
+            connect(t, &QThread::finished, this, [this, id, path, cnt]() {
+                if(--(*cnt) > 0) return;
+
+                if(QFile::exists(path))
                 {
-                    if(w->m_isChunked)
-                    {
-                        isChuckedDownload = true;
-                    }
-
-                    QMetaObject::invokeMethod(w, "abort", Qt::QueuedConnection);
-
-                    updateDownloadFileStatus(id, w->_tableRow, tr("User Abbruch!"), 9);
-                    QThread* t = w->thread();
-                    t->quit();
-                    w->deleteLater();
+                    if(QFile::remove(path))
+                        addLogText(id + tr(": Datei gelöscht (Chunk-Download abgebrochen): ") + QFileInfo(path).fileName());
+                    else
+                        addLogText(id + tr(": FEHLER: Datei konnte nicht gelöscht werden: ") + QFileInfo(path).fileName());
                 }
-
-                QThread* t = w->thread();
-                connect(t, &QThread::finished, t, &QThread::deleteLater);
-                t->quit();
-            }
-
-            w->deleteLater();
-            it.remove();
-
-            if (g_runningDownloads > 0)
-            {
-                g_runningDownloads--;
-            }
+            });
         }
-        else if(!w->_working)
-        {
-            w->deleteLater();
-            it.remove();
-        }
+
+        QMetaObject::invokeMethod(w, "abort", Qt::QueuedConnection);
     }
 
-    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(ui->tabWidget->tabToolTip(tabIndex));
+    g_runningDownloads = qMax(0, g_runningDownloads - releasedSlots);
+    g_tabDownloads[id] = 0;
+
+    const QString prefix = id + "|";
+    for(auto it = m_rowSessions.begin(); it != m_rowSessions.end();)
+        it = it.key().startsWith(prefix) ? m_rowSessions.erase(it) : ++it;
+    for(auto it = m_lastRowUpdate.begin(); it != m_lastRowUpdate.end();)
+        it = it.key().startsWith(prefix) ? m_lastRowUpdate.erase(it) : ++it;
+
+    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
+    if(!widget1) return;
+
+    QTableWidget *widget5 = widget1->findChild<QTableWidget *>("files");
+
+    for(int row : qAsConst(abortedRows))
+    {
+        if(chunkedRows.contains(row) && widget5 && widget5->item(row, 12))
+        {
+            widget5->item(row, 12)->setText("0");
+            widget5->item(row, 12)->setData(Qt::UserRole, QVariant());
+
+            QProgressBar *pb = widget5->findChild<QProgressBar *>("pbarIn_" + QString::number(row));
+            if(pb) pb->setValue(0);
+        }
+
+        applyFileStatus(id, row, tr("User Abbruch!"), 9, false);
+    }
+
     QTableWidget *wStatus = widget1->findChild<QTableWidget *>("status");
 
     qlonglong t_startTime = wStatus->item(0, 12)->text().toLongLong();
     qlonglong t_lastTime = wStatus->item(0, 13)->text().toLongLong();
-    qlonglong t_stopTime = wStatus->item(0, 16)->text().toLongLong();
-    qlonglong t_updateTime = 0;
 
-    if(t_stopTime)
-    {
-        t_updateTime = (t_lastTime - t_startTime) + t_updateTime;
-    }
-    else
-    {
-        t_updateTime = t_lastTime - t_startTime;
-    }
-
+    qlonglong t_updateTime = t_lastTime - t_startTime;
+    if(t_updateTime < 0) t_updateTime = 0;
     wStatus->item(0, 16)->setText(QString::number(t_updateTime));
 
     QToolBar *widget2 = widget1->findChild<QToolBar *>("toolbar");
     QToolButton *widget3 = widget2->findChild<QToolButton *>("toolStart");
     widget3->setEnabled(1);
 
-    qint64 totalResume = 0;
-    QTableWidget *widget5 = widget1->findChild<QTableWidget *>("files");
-
-    for(int i = 0; i < widget5->rowCount(); i++)
+    qint64 totalLoaded = 0;
+    if(widget5)
     {
-        if(isChuckedDownload)
+        for(int i = 0; i < widget5->rowCount(); i++)
         {
-            int currentStatus = widget5->item(i, 7)->text().toInt();
-
-            if(currentStatus == 9)
-            {
-                QString fimeName = widget5->item(i, 2)->text();
-                QString donloadPath = QDir::cleanPath(settingsWindow->_downloadPath + "/" + id + "/" + fimeName);
-                QString fullFilePath = QDir::toNativeSeparators(donloadPath);
-
-                QTimer::singleShot(1500, this, [this, id, fullFilePath, fimeName]() {
-                    if(QFile::exists(fullFilePath))
-                    {
-                        if (QFile::remove(fullFilePath))
-                        {
-                            addLogText(id + tr(": Datei gelöscht (Chunk-Download abgebrochen): ") + fimeName);
-                        }
-                        else
-                        {
-                            addLogText(id + tr(": FEHLER: Datei konnte nicht gelöscht werden: ") + fimeName);
-                        }
-                    }
-                });
-            }
-        }
-        else
-        {
-            QString fimeName = widget5->item(i, 2)->text();
-            QString donloadPath = QDir::cleanPath(settingsWindow->_downloadPath + "/" + id + "/" + fimeName);
-            QFileInfo fileInfo(QDir::toNativeSeparators(donloadPath));
-
-            qint64 actualSizeOnDisk = 0;
-            if(fileInfo.exists())
-            {
-                actualSizeOnDisk = fileInfo.size();
-            }
-
-            if(widget5->item(i, 0)->checkState() == Qt::Checked && widget5->item(i, 7)->text().toInt() != 10)
-            {
-                widget5->item(i, 15)->setText(QString::number(actualSizeOnDisk));
-            }
-
-            totalResume += actualSizeOnDisk;
+            if(widget5->item(i, 0) && widget5->item(i, 12) && widget5->item(i, 0)->checkState() == Qt::Checked)
+                totalLoaded += widget5->item(i, 12)->text().toLongLong();
         }
     }
+    wStatus->item(0, 8)->setText(QString::number(totalLoaded));
+    wStatus->item(0, 9)->setText(bytes2Human(totalLoaded));
 
-    if(totalResume)
-    {
-        QTableWidget *widget6 = widget1->findChild<QTableWidget *>("status");
-        widget6->item(0, 17)->setText(QString::number(totalResume));
-    }
+    QProgressBar *mBar = widget1->findChild<QProgressBar *>("mProgBar");
+    qlonglong totalSize = wStatus->item(0, 6)->text().toLongLong();
+    if(mBar && totalSize > 0)
+        mBar->setValue(static_cast<int>(qBound<qint64>(0, (totalLoaded * 100) / totalSize, 100)));
 
     changeCHKBOX(id, false);
-
-    g_tabDownloads[id] = 0;
 }
 
 void SFDLSauger::downloadError(QString error)
@@ -1606,178 +1617,187 @@ void SFDLSauger::downloadError(QString error)
     MsgWarning(tr("Download Fehler"), "[" + error + tr("] Allgemeiner FTP Download Fehler!"));
 }
 
-// update progress on downloads
-void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime = false, bool firstUpdate = false)
+void SFDLSauger::releaseDownloadSlot(const QString &tabID)
 {
-    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
-    QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
+    if(g_runningDownloads > 0) g_runningDownloads--;
 
-    qint64 resume = widget2->item(nRow, 15)->text().toLongLong();
-    if(resume && !firstUpdate)
+    auto it = g_tabDownloads.find(tabID);
+    if(it != g_tabDownloads.end() && it.value() > 0) it.value()--;
+}
+
+bool SFDLSauger::rowHasActiveWorker(const QString &tabID, int row) const
+{
+    for(FTPDownload *w : g_Worker)
     {
-        read += resume;
+        if(!w || w->_id != tabID || w->_tableRow != row) continue;
+
+        QThread *t = w->thread();
+        if(t && t->isRunning()) return true;
+    }
+    return false;
+}
+
+// update progress on downloads
+void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate)
+{
+    Q_UNUSED(firstUpdate);
+
+    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
+    if(!widget1) return;
+
+    QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
+    QTableWidget *widget3 = widget1->findChild<QTableWidget *>("status");
+    if(!widget2 || !widget3 || nRow < 0 || nRow >= widget2->rowCount()) return;
+    if(!widget2->item(nRow, 3) || !widget2->item(nRow, 12)) return;
+
+    if(!overwriteTime && g_tabDownloads.value(tabID) <= 0) return;
+
+    const qint64 fileSize = widget2->item(nRow, 3)->text().toLongLong();
+    if(fileSize > 0) total = fileSize;
+    if(read < 0) read = 0;
+    if(total > 0 && read > total) read = total;
+
+    const qint64 currentMSecs = QDateTime::currentMSecsSinceEpoch();
+    const QString key = tabID + "|" + QString::number(nRow);
+
+    const bool finalUpdate = (total > 0 && read >= total);
+    if(!overwriteTime && !finalUpdate && (currentMSecs - m_lastRowUpdate.value(key, 0)) < 250) return;
+    m_lastRowUpdate[key] = currentMSecs;
+
+    int progress = 0;
+    if(total > 0) progress = static_cast<int>((read * 100) / total);
+    progress = qBound(0, progress, 100);
+
+    QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(nRow));
+    if(PROGBAR) PROGBAR->setValue(progress);
+
+    qint64 zeit_s = 0;
+    qint64 mbSec = 0;
+
+    if(!overwriteTime)
+    {
+        RowSession &sess = m_rowSessions[key];
+        if(sess.startMs == 0 || read < sess.baseRead)
+        {
+            sess.startMs = currentMSecs;
+            sess.baseRead = read;
+        }
+
+        qint64 diff_ms = currentMSecs - sess.startMs;
+        if(diff_ms < 1) diff_ms = 1;
+
+        zeit_s = diff_ms / 1000;
+        mbSec = ((read - sess.baseRead) * 1000) / diff_ms;
+
+        if(widget2->item(nRow, 8)) widget2->item(nRow, 8)->setText(QString::number(sess.startMs));
+        if(widget2->item(nRow, 9)) widget2->item(nRow, 9)->setText(QString::number(currentMSecs));
     }
 
-    qint64 currentMSecs = QDateTime::currentMSecsSinceEpoch();
+    widget2->item(nRow, 10)->setText(bytes2Human(mbSec) + "/s");
+    widget2->item(nRow, 11)->setText(seconds_to_DHMS(zeit_s));
+    widget2->item(nRow, 12)->setText(QString::number(read));
 
-    if((currentMSecs - g_lastProgressUpdate) >= 250 || total <= read || overwriteTime)
+    qlonglong t_totalSize = widget3->item(0, 6)->text().toLongLong();
+    qlonglong t_sizeLoaded = 0;
+    for(int r = 0; r < widget2->rowCount(); ++r)
     {
-        g_lastProgressUpdate = currentMSecs;
-
-        int progress = 0;
-        if(total > 0)
+        if(widget2->item(r, 0) && widget2->item(r, 12) && widget2->item(r, 0)->checkState() == Qt::Checked)
         {
-            progress = static_cast<int>((read * 100) / total);
+            t_sizeLoaded += widget2->item(r, 12)->text().toLongLong();
+        }
+    }
+    if(t_totalSize > 0 && t_sizeLoaded > t_totalSize) t_sizeLoaded = t_totalSize;
+
+    const qlonglong baseline = widget3->item(0, 17) ? widget3->item(0, 17)->text().toLongLong() : 0;
+
+    qlonglong t_startTime_ms = widget3->item(0, 12)->text().toLongLong();
+    qlonglong t_stopTime_ms = widget3->item(0, 16)->text().toLongLong();
+    qint64 t_zeit_s = 0;
+    qint64 t_mbSec = 0;
+
+    if(overwriteTime)
+    {
+        // ...
+    }
+    else if(t_startTime_ms == 0)
+    {
+        widget3->item(0, 12)->setText(QString::number(currentMSecs));
+        widget3->item(0, 13)->setText(QString::number(currentMSecs));
+    }
+    else
+    {
+        widget3->item(0, 13)->setText(QString::number(currentMSecs));
+        qint64 t_diff_ms = currentMSecs - t_startTime_ms;
+
+        if(t_stopTime_ms > 0)
+        {
+            t_diff_ms = t_stopTime_ms;
+            widget3->item(0, 16)->setText("0");
+            widget3->item(0, 12)->setText(QString::number(currentMSecs - t_stopTime_ms));
         }
 
-        if(overwriteTime && progress >= 100)
+        if(t_diff_ms < 1) t_diff_ms = 1;
+        t_zeit_s = t_diff_ms / 1000;
+        t_mbSec = (qMax<qlonglong>(0, t_sizeLoaded - baseline) * 1000) / t_diff_ms;
+    }
+
+    if(overwriteTime) { t_mbSec = 0; t_zeit_s = 0; }
+
+    widget3->item(0, 8)->setText(QString::number(t_sizeLoaded));
+    widget3->item(0, 9)->setText(bytes2Human(t_sizeLoaded));
+    widget3->item(0, 14)->setText(bytes2Human(t_mbSec) + "/s");
+    widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit_s));
+
+    if(t_totalSize > 0)
+    {
+        int totalProgress = static_cast<int>(qBound<qlonglong>(0, (t_sizeLoaded * 100) / t_totalSize, 100));
+
+        QProgressBar *mBar = widget1->findChild<QProgressBar *>("mProgBar");
+        if(mBar) mBar->setValue(totalProgress);
+
+        // update task-bar icon
+        int targetTabIndex = ui->tabWidget->indexOf(widget1);
+        if(targetTabIndex == ui->tabWidget->currentIndex())
         {
-            QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(nRow));
-            if(PROGBAR) progress = PROGBAR->value();
+            if(totalProgress > 0 && totalProgress < 100)
+                m_taskbarProgress->setProgress(totalProgress);
+            else
+                m_taskbarProgress->clearProgress();
         }
-        else
-        {
-            if(progress > 100) progress = 100;
-            if(progress < 0) progress = 0;
-        }
+    }
 
-        QProgressBar *PROGBAR = widget2->findChild<QProgressBar *>("pbarIn_" + QString::number(nRow));
-        if(PROGBAR) PROGBAR->setValue(progress);
-
-        qint64 start_time_ms = widget2->item(nRow, 8)->text().toLongLong();
-        qint64 zeit_s = 0;
-        qint64 mbSec = 0;
-
-        if(start_time_ms == 0)
-        {
-            widget2->item(nRow, 8)->setText(QString::number(currentMSecs));
-            widget2->item(nRow, 9)->setText(QString::number(currentMSecs));
-        }
-        else
-        {
-            widget2->item(nRow, 9)->setText(QString::number(currentMSecs));
-
-            qint64 diff_ms = currentMSecs - start_time_ms;
-            zeit_s = diff_ms / 1000;
-
-            if(diff_ms < 1) diff_ms = 1;
-
-            qint64 bytesSinceStart = (resume && !firstUpdate) ? (read - resume) : read;
-            mbSec = (bytesSinceStart * 1000) / diff_ms;
-        }
-
-        if(overwriteTime) { mbSec = 0; zeit_s = 0; }
-
-        widget2->item(nRow, 10)->setText(bytes2Human(mbSec) + "/s");
-        widget2->item(nRow, 11)->setText(seconds_to_DHMS(zeit_s));
-
-        qlonglong lastReadData = widget2->item(nRow, 12)->text().toLongLong();
-        widget2->item(nRow, 12)->setText(QString::number(read));
-
-        QTableWidget *widget3 = widget1->findChild<QTableWidget *>("status");
-        qlonglong t_totalSize = widget3->item(0, 6)->text().toLongLong();
-        qlonglong t_sizeLoaded = widget3->item(0, 8)->text().toLongLong();
-
-        t_sizeLoaded += (read - lastReadData);
-        if(firstUpdate) t_sizeLoaded += read;
-
-        qlonglong t_startTime_ms = widget3->item(0, 12)->text().toLongLong();
-        qlonglong t_stopTime_ms = widget3->item(0, 16)->text().toLongLong();
-        qint64 t_zeit_s = 0;
-        qint64 t_mbSec = 0;
-
-        if(t_startTime_ms == 0)
-        {
-            widget3->item(0, 12)->setText(QString::number(currentMSecs));
-            widget3->item(0, 13)->setText(QString::number(currentMSecs));
-        }
-        else
-        {
-            widget3->item(0, 13)->setText(QString::number(currentMSecs));
-            qint64 t_diff_ms = currentMSecs - t_startTime_ms;
-
-            if(t_stopTime_ms > 0)
-            {
-                t_diff_ms = t_stopTime_ms;
-                widget3->item(0, 16)->setText("0");
-                widget3->item(0, 12)->setText(QString::number(currentMSecs - t_stopTime_ms));
-            }
-
-            if(t_diff_ms < 1) t_diff_ms = 1;
-            t_zeit_s = t_diff_ms / 1000;
-            t_mbSec = (t_sizeLoaded * 1000) / t_diff_ms;
-        }
-
-        if(overwriteTime) { t_mbSec = 0; t_zeit_s = 0; }
-
-        widget3->item(0, 8)->setText(QString::number(t_sizeLoaded));
-        widget3->item(0, 9)->setText(bytes2Human(t_sizeLoaded));
-        widget3->item(0, 14)->setText(bytes2Human(t_mbSec) + "/s");
-        widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit_s));
-
-        if(t_totalSize > 0)
-        {
-            qlonglong totalProgress = (t_sizeLoaded * 100) / t_totalSize;
-            widget1->findChild<QProgressBar *>("mProgBar")->setValue(static_cast<int>(totalProgress));
-
-            // update task-bar icon
-            int targetTabIndex = ui->tabWidget->indexOf(widget1);
-            if(targetTabIndex == ui->tabWidget->currentIndex())
-            {
-                if(totalProgress > 0 && totalProgress < 100)
-                {
-                    m_taskbarProgress->setProgress(totalProgress);
-                }
-                else
-                {
-                    m_taskbarProgress->clearProgress();
-                }
-            }
-        }
-
-        QLabel *statusLabel = widget1->findChild<QLabel *>("mStatusText");
+    QLabel *statusLabel = widget1->findChild<QLabel *>("mStatusText");
+    if(statusLabel)
+    {
         statusLabel->setText(bytes2Human(t_sizeLoaded) + tr(" von ") + bytes2Human(t_totalSize) + tr(" geladen. (") + bytes2Human(t_mbSec) + "/s | " + seconds_to_DHMS(t_zeit_s) + ")");
     }
 }
 
 void SFDLSauger::updateChunkedDownloadProgress(QString tabID, int nRow, int chunkIndex, qint64 chunkRead, qint64 totalSize)
 {
+    if(g_tabDownloads.value(tabID) <= 0) return;   // verspaetete Events nach Stop
+
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
+    if(!widget1) return;
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
-    QTableWidgetItem *item = widget2->item(nRow, 12);
+    if(!widget2 || nRow < 0 || nRow >= widget2->rowCount()) return;
 
-    QVariantList chunkList = item->data(Qt::UserRole).toList();
+    QTableWidgetItem *readItem = widget2->item(nRow, 12);
+    QTableWidgetItem *stateItem = widget2->item(nRow, 7);
+    if(!readItem || !stateItem) return;
 
-    QTableWidgetItem *chunkItem = widget2->item(nRow, 7);
-    if(!chunkItem) return;
+    const int totalChunks = qMax(1, stateItem->data(Qt::UserRole + 1).toInt());
 
-    int totalChunks = chunkItem->data(Qt::UserRole).toInt();
-    while(chunkList.size() < totalChunks)
-    {
-        chunkList.append(0);
-    }
+    QVariantList chunkList = readItem->data(Qt::UserRole).toList();
+    while(chunkList.size() < totalChunks) chunkList.append(qint64(0));
 
-    qint64 expectedChunkSize = totalSize / totalChunks;
+    if(chunkIndex < 0 || chunkIndex >= chunkList.size()) return;
 
-    if(chunkIndex >= 0 && chunkIndex < chunkList.size())
-    {
-        qint64 previousRead = chunkList[chunkIndex].toLongLong();
-        chunkList[chunkIndex] = chunkRead;
+    const qint64 baseSize = totalSize / totalChunks;
+    const qint64 maxForChunk = (chunkIndex == totalChunks - 1) ? (totalSize - baseSize * (totalChunks - 1)) : baseSize;
 
-        if(previousRead < expectedChunkSize && chunkRead >= expectedChunkSize)
-        {
-            int remainingChunks = chunkItem->data(Qt::UserRole).toInt();
-
-            if(remainingChunks > 0)
-            {
-                remainingChunks--;
-                chunkItem->setData(Qt::UserRole, remainingChunks);
-                chunkItem->setText(QString::number(remainingChunks));
-            }
-        }
-    }
-
-    item->setData(Qt::UserRole, chunkList);
+    chunkList[chunkIndex] = qMax<qint64>(chunkList[chunkIndex].toLongLong(), qMin(chunkRead, maxForChunk));
+    readItem->setData(Qt::UserRole, chunkList);
 
     qint64 totalReadForFile = 0;
     for(const QVariant &val : qAsConst(chunkList))
@@ -1786,43 +1806,75 @@ void SFDLSauger::updateChunkedDownloadProgress(QString tabID, int nRow, int chun
     }
 
     updateDownloadProgress(tabID, nRow, totalReadForFile, totalSize, false, false);
+}
 
-    if(totalSize > 0 && totalReadForFile >= totalSize)
+void SFDLSauger::onChunkFinished(QString tabID, int nRow, int chunkIndex)
+{
+    Q_UNUSED(chunkIndex);
+
+    releaseDownloadSlot(tabID);
+
+    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
+    QTableWidget *widget2 = widget1 ? widget1->findChild<QTableWidget *>("files") : nullptr;
+    if(!widget2 || nRow < 0 || nRow >= widget2->rowCount() || !widget2->item(nRow, 7) || !widget2->item(nRow, 12))
     {
-        item->setData(Qt::UserRole, QVariant());
+        startDownload(tabID);
+        return;
+    }
 
-        chunkItem->setData(Qt::UserRole, 0);
-        chunkItem->setText("0");
+    QTableWidgetItem *stateItem = widget2->item(nRow, 7);
+    const int cur = stateItem->text().toInt();
 
-        updateDownloadFileStatus(tabID, nRow, "Fertig", 10);
+    if(cur == 2 || cur == 3 || cur == 9 || cur == 10)
+    {
+        startDownload(tabID);
+        return;
+    }
+
+    int remaining = qMax(0, stateItem->data(Qt::UserRole).toInt() - 1);
+    stateItem->setData(Qt::UserRole, remaining);
+    stateItem->setText(QString::number(cur));
+
+    if(remaining > 0)
+    {
+        startDownload(tabID);
+        return;
+    }
+
+    const qint64 fileSize = widget2->item(nRow, 3)->text().toLongLong();
+    qint64 sum = 0;
+    const QVariantList chunkList = widget2->item(nRow, 12)->data(Qt::UserRole).toList();
+    for(const QVariant &v : chunkList) sum += v.toLongLong();
+
+    if(fileSize > 0 && sum >= fileSize)
+    {
+        widget2->item(nRow, 12)->setData(Qt::UserRole, QVariant());
+        applyFileStatus(tabID, nRow, tr("Fertig!"), 10, false);
+    }
+    else
+    {
+        applyFileStatus(tabID, nRow, tr("Chunk-Download unvollständig"), 2, false);
     }
 }
 
 void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statusMsg, int status)
 {
+    applyFileStatus(tabID, nRow, statusMsg, status, true);
+}
+
+void SFDLSauger::applyFileStatus(QString tabID, int nRow, QString statusMsg, int status, bool releaseSlot)
+{
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(tabID);
+
+    const bool endState = (status == 9 || status == 10 || status == 2 || status == 3);
+    if(releaseSlot && endState) releaseDownloadSlot(tabID);
+
+    if(!widget1) return;
+
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
+    if(!widget2 || nRow < 0 || nRow >= widget2->rowCount() || !widget2->item(nRow, 6) || !widget2->item(nRow, 7)) return;
 
-    int remainingChunks = widget2->item(nRow, 7)->data(Qt::UserRole).toInt();
-
-    if(status == 9 || status == 10 || status == 2 || status == 3)
-    {
-        g_runningDownloads--;
-        g_tabDownloads[tabID]--;
-    }
-
-    if(status == 10)
-    {
-        if(remainingChunks > 1)
-        {
-            remainingChunks--;
-            widget2->item(nRow, 7)->setData(Qt::UserRole, remainingChunks);
-            startDownload(tabID);
-            return;
-        }
-        widget2->item(nRow, 7)->setData(Qt::UserRole, 0);
-    }
-    else if(status == 9)
+    if(status == 10 || status == 9)
     {
         widget2->item(nRow, 7)->setData(Qt::UserRole, 0);
     }
@@ -1840,6 +1892,11 @@ void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statu
 
     if(status == 10)
     {
+        if(widget2->item(nRow, 3) && widget2->item(nRow, 12))
+        {
+            widget2->item(nRow, 12)->setText(widget2->item(nRow, 3)->text());
+        }
+
         QString fileName = widget2->item(nRow, 2)->text();
         addLogText(fileName + tr(": Fertig!"));
 
@@ -1880,8 +1937,11 @@ void SFDLSauger::updateDownloadFileStatus(QString tabID, int nRow, QString statu
     {
         if(status == 2 || status == 3)
         {
-            QTimer::singleShot(3000, [this, tabID]() {
-                startDownload(tabID);
+            QTimer::singleShot(3000, this, [this, tabID]() {
+                if(!m_stoppedTabs.contains(tabID))
+                {
+                    startDownload(tabID);
+                }
             });
         }
     }

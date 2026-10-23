@@ -2,7 +2,6 @@
 
 FTPListFiles::FTPListFiles(QObject *parent) : QObject(parent) {}
 
-// ftp action
 void FTPListFiles::setFTP()
 {
     loop = new QEventLoop();
@@ -191,6 +190,8 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
         path = "/";
     }
 
+    baseSFDL = data.value(1).section('|', 1);
+
     baseIP = ip;
     basePort = port;
     baseUser = user;
@@ -271,7 +272,7 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
         loop = nullptr;
     }
 
-    while(!pathList.isEmpty())
+    while(!pathList.isEmpty() && !m_hasErrorOccurred)
     {
         QString getPath = pathList.takeFirst();
         getFTPIndex(baseIP, basePort, baseUser, basePass, getPath, timeout);
@@ -319,12 +320,12 @@ void FTPListFiles::doListInfo(const QUrlInfo& info)
 
 void FTPListFiles::isDone(bool)
 {
-    if(timer->isActive())
+    if(timer && timer->isActive())
     {
         timer->stop();
     }
 
-    if(ftp->error())
+    if(ftp && ftp->error())
     {
         #ifdef QT_DEBUG
             qDebug() << "FTP Error: " << ftp->error();

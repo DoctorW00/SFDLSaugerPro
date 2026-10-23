@@ -1,6 +1,6 @@
 QT += core widgets gui network ftp xml multimedia
 
-VERSION = 1.6.1
+VERSION = 1.6.2
 
 win32 {
     QT += winextras

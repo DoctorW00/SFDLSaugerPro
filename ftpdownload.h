@@ -102,13 +102,18 @@ public:
     int ftpTimeout = 30000;
 
     // chunk downloads
-    int m_chunkIndex;
+    int m_chunkIndex = 0;
     bool m_isChunked = false;
     bool m_isMasterChunk = false;
     qint64 m_chunkStart = 0;
     qint64 m_chunkEnd = 0;
     qint64 m_totalSize = 0;
     bool m_remove_file = false;
+
+    qint64 m_startOffset = 0;
+    bool m_chunkReachedEnd = false;
+
+    QString filePath() const { return QDir::toNativeSeparators(QDir::cleanPath(dlpath + "/" + dlfile)); }
 
 public slots:
     void process();
@@ -125,14 +130,15 @@ signals:
     void statusUpdateFile(QString id, int tableRow, QString statusMsg, int status);
     void doProgress(QString id, int tableRow, qint64 read, qint64 total, bool overwriteTime, bool firstUpdate);
     void doChunkProgress(QString tabID, int nRow, int chunkIndex, qint64 chunkRead, qint64 totalSize);
+    void chunkFinished(QString tabID, int nRow, int chunkIndex);
     void sendLogText(QString txt);
 
 private:
-    QFtp *ftp;
+    QFtp *ftp = nullptr;
     QStringList data;
     // QFile *file;
-    ThrottledFile *file;
-    QEventLoop *ftpLoop;
+    ThrottledFile *file = nullptr;
+    QEventLoop *ftpLoop = nullptr;
     QMutex mutex;
     QString id;
     QString host;

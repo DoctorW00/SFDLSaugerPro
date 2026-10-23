@@ -32,6 +32,7 @@ private slots:
     QString ListElements(QDomElement root, QString tagname);
     QString decryptString(QString password, QString encodedString);
     bool validateIPv4(QString ip);
+    QString sanitizeString(const QString& input);
 
 private:
     QFtp *ftp;

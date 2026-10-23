@@ -22,10 +22,14 @@ chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
     loadIRCLayout();
 
     connect(ui->selectIRCServer, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &chatIRC::on_selectIRCServer_currentIndexChanged);
+            this, &chatIRC::on_selectIRCServer_currentIndexChanged, Qt::UniqueConnection);
     connect(ui->selectIRCProxy, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &chatIRC::on_selectIRCProxy_currentIndexChanged);
-    connect(ui->buttonSetup, &QPushButton::clicked, this, &chatIRC::createSetupDialog);
+            this, &chatIRC::on_selectIRCProxy_currentIndexChanged, Qt::UniqueConnection);
+
+    // leeres Dokument als sicherer Fallback fuer den Chat-Browser (setDocument(nullptr) ist nicht erlaubt)
+    auto *emptyDoc = new QTextDocument(this);
+    emptyDoc->setObjectName("emptyDoc");
+    connect(ui->buttonSetup, &QPushButton::clicked, this, &chatIRC::createSetupDialog, Qt::UniqueConnection);
 
     setupServerComboBox();
     setupProxyComboBox();
@@ -65,8 +69,18 @@ chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
 
 chatIRC::~chatIRC()
 {
+    // WICHTIG: Models/Buffer/Connection sind Kinder von 'this' und werden erst NACH diesem Destruktor
+    // (und nach delete ui) zerstoert. Ihre Signale (removed, socketError, ...) wuerden sonst Slots auf
+    // einem halb zerstoerten Objekt aufrufen (ui, userModels, documents sind dann schon weg) -> Crash.
+    if(bufferModel)
+    {
+        disconnect(bufferModel, nullptr, this, nullptr);
+    }
+
     if(connection)
     {
+        disconnect(connection, nullptr, this, nullptr);
+
         if(connection->isActive())
         {
             connection->quit(connection->realName());
@@ -74,7 +88,12 @@ chatIRC::~chatIRC()
         }
     }
 
+    // Views von den Models loesen, bevor diese zerstoert werden
+    ui->userList->setModel(nullptr);
+    ui->bufferView->setModel(nullptr);
+
     delete ui;
+    ui = nullptr;
 }
 
 const QVector<gsIrcServerInfo>& chatIRC::predefinedServers()
@@ -441,14 +460,36 @@ void chatIRC::onBufferAdded(IrcBuffer* buffer)
 
 void chatIRC::onBufferRemoved(IrcBuffer* buffer)
 {
-    delete userModels.take(buffer);
-    delete documents.take(buffer);
+    QTextDocument* doc = documents.take(buffer);
+    IrcUserModel* model = userModels.take(buffer);
+
+    // Wird der Buffer gerade angezeigt (z.B. /part), duerfen die Views nicht auf geloeschte Objekte zeigen
+    if(doc && ui->chatBrowser->document() == doc)
+    {
+        QTextDocument* fallback = findChild<QTextDocument*>("emptyDoc");
+        if(fallback) ui->chatBrowser->setDocument(fallback);
+    }
+
+    if(model && ui->userList->model() == model)
+    {
+        ui->userList->setModel(nullptr);
+    }
+
+    if(completer && completer->buffer() == buffer)
+    {
+        completer->setBuffer(nullptr);
+    }
+
+    delete model;
+    delete doc;
 }
 
 void chatIRC::onBufferActivated(const QModelIndex& index)
 {
     IrcBuffer* buffer = index.data(Irc::BufferRole).value<IrcBuffer*>();
-    ui->chatBrowser->setDocument(documents.value(buffer));
+    QTextDocument* doc = documents.value(buffer);
+    if(!doc) doc = findChild<QTextDocument*>("emptyDoc");
+    if(doc) ui->chatBrowser->setDocument(doc);
     ui->chatBrowser->verticalScrollBar()->triggerAction(QScrollBar::SliderToMaximum);
     ui->userList->setModel(userModels.value(buffer));
     completer->setBuffer(buffer);
@@ -556,7 +597,10 @@ void chatIRC::createBufferList()
 
     IrcBuffer* serverBuffer = bufferModel->add(connection->host());
 
-    connect(bufferModel, SIGNAL(messageIgnored(IrcMessage*)), serverBuffer, SLOT(receiveMessage(IrcMessage*)));
+    if(serverBuffer)
+    {
+        connect(bufferModel, SIGNAL(messageIgnored(IrcMessage*)), serverBuffer, SLOT(receiveMessage(IrcMessage*)));
+    }
 }
 
 void chatIRC::createParser()
@@ -951,6 +995,7 @@ void chatIRC::on_btnAddServer_clicked()
     srv.nick            = editNick->text().trimmed();
     srv.user            = editUser->text().trimmed();
     srv.real            = editReal->text().trimmed();
+    srv.password        = editPass->text().trimmed();
     srv.defaultChannel  = editDefaultChannel->text().trimmed();
 
     if(srv.displayName.isEmpty() || srv.hostname.isEmpty())
@@ -996,6 +1041,7 @@ void chatIRC::on_btnUpdateServer_clicked()
     QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
     int customIdx = idx - predefinedServers().size();
+    if(customIdx < 0 || customIdx >= custom.size()) return;
     custom[customIdx] = srv;
     saveCustomServers(custom, dummy);
 
@@ -1017,7 +1063,9 @@ void chatIRC::on_btnDeleteServer_clicked()
     QVector<gsIrcServerInfo> custom;
     QVector<gsSocks5ProxyInfo> dummy;
     loadCustomServers(custom, dummy);
-    custom.removeAt(idx - predefinedServers().size());
+    const int delIdx = idx - predefinedServers().size();
+    if(delIdx < 0 || delIdx >= custom.size()) return;
+    custom.removeAt(delIdx);
     saveCustomServers(custom, dummy);
 
     refreshServerCombo();
@@ -1098,6 +1146,7 @@ void chatIRC::on_btnUpdateProxy_clicked()
     loadCustomServers(dummyServers, customProxies);
 
     int customIdx = idx - predefinedProxies().size();
+    if(customIdx < 0 || customIdx >= customProxies.size()) return;
     customProxies[customIdx] = proxy;
 
     saveCustomServers(dummyServers, customProxies);
@@ -1124,7 +1173,9 @@ void chatIRC::on_btnDeleteProxy_clicked()
     QVector<gsSocks5ProxyInfo> customProxies;
     loadCustomServers(dummyServers, customProxies);
 
-    customProxies.removeAt(idx - predefinedProxies().size());
+    const int delIdx = idx - predefinedProxies().size();
+    if(delIdx < 0 || delIdx >= customProxies.size()) return;
+    customProxies.removeAt(delIdx);
     saveCustomServers(dummyServers, customProxies);
 
     refreshProxyCombo();
@@ -1255,7 +1306,7 @@ QString IrcMessageFormatter::formatQuitMessage(IrcQuitMessage* message)
 
 void chatIRC::changeEvent(QEvent *event)
 {
-    if(event->type() == QEvent::LanguageChange)
+    if(ui && event->type() == QEvent::LanguageChange)
     {
         ui->retranslateUi(this);
     }

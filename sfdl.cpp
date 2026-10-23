@@ -3,9 +3,28 @@
 #include <QDebug>
 
 #include <QCryptographicHash>
+#include <QRegularExpression>
 #include <qaesencryption.h>
 
 sfdl::sfdl(QObject *parent) : QObject(parent) {}
+
+static QString entryValue(const QStringList &list, int index)
+{
+    if(index < 0 || index >= list.count()) return QString();
+    return list.at(index).section('|', 1);
+}
+
+static QString entryKey(const QStringList &list, int index)
+{
+    if(index < 0 || index >= list.count()) return QString();
+    return list.at(index).section('|', 0, 0);
+}
+
+static bool hasPathTraversal(const QString &path)
+{
+    const QStringList parts = path.split(QRegularExpression("[/\\\\]"));
+    return parts.contains("..");
+}
 
 QByteArray sfdl::loadSFDL(QString file)
 {
@@ -24,8 +43,21 @@ QByteArray sfdl::loadSFDL(QString file)
 
 QString sfdl::decryptString(QString password, QString encodedString)
 {
+    encodedString = encodedString.trimmed();
+
+    if(encodedString.isEmpty())
+    {
+        return QString();
+    }
+
     QByteArray data = QByteArray::fromBase64(encodedString.toLatin1());
-    QString iv = encodedString.section("", 0, 16);
+
+    if(data.size() < 16 || (data.size() % 16) != 0)
+    {
+        return QString();
+    }
+
+    QString iv = encodedString.left(16);
 
     QAESEncryption encryption(QAESEncryption::AES_128, QAESEncryption::CBC, QAESEncryption::PADDING::PKCS7);
 
@@ -33,32 +65,55 @@ QString sfdl::decryptString(QString password, QString encodedString)
     QByteArray hashIV = QCryptographicHash::hash(iv.toLocal8Bit(), QCryptographicHash::Md5);
 
     QByteArray decodeText = encryption.decode(data, hashKey, hashIV);
-    QString decodedString = QString(encryption.removePadding(decodeText).mid(16));
+    if(decodeText.isEmpty())
+    {
+        return QString();
+    }
 
-    return decodedString;
+    return QString::fromUtf8(encryption.removePadding(decodeText).mid(16));
 }
 
 bool sfdl::validateIPv4(QString ip)
 {
-    /*
-    QHostAddress address(ip);
+    static const QRegularExpression re("^((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$");
+    return re.match(ip.trimmed()).hasMatch();
+}
 
-    if(QAbstractSocket::IPv4Protocol == address.protocol())
+QString sfdl::sanitizeString(const QString& input)
+{
+    QString cleanString = input.trimmed();
+
+    cleanString.replace(QRegularExpression("[\\\\/]"), "_");
+    cleanString.replace(QRegularExpression("[^\\p{L}\\p{N}_\\- \\.]"), "_");
+
+    while(cleanString.startsWith('.'))
     {
-       return true;
-    }
-    */
-
-    QString ipv4Regex = "^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$";
-    QRegularExpression re(ipv4Regex);
-    QRegularExpressionMatch match = re.match(ip);
-
-    if(match.hasMatch())
-    {
-        return true;
+        cleanString.remove(0, 1);
     }
 
-    return false;
+    if(cleanString.length() > 100)
+    {
+        cleanString = cleanString.left(100);
+    }
+
+    cleanString = cleanString.trimmed();
+    while(cleanString.endsWith('.') || cleanString.endsWith(' '))
+    {
+        cleanString.chop(1);
+    }
+
+    static const QRegularExpression reserved("^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(\\..*)?$", QRegularExpression::CaseInsensitiveOption);
+    if(reserved.match(cleanString).hasMatch())
+    {
+        cleanString.prepend('_');
+    }
+
+    if(cleanString.isEmpty())
+    {
+        cleanString = "mysterydownload";
+    }
+
+    return cleanString;
 }
 
 QString sfdl::ListElements(QDomElement root, QString tagname)
@@ -86,6 +141,13 @@ void sfdl::setSFDL(QString file, QStringList passwordList)
 
 void sfdl::readSFDL()
 {
+    struct FinishGuard
+    {
+        sfdl *s;
+        explicit FinishGuard(sfdl *p) : s(p) {}
+        ~FinishGuard() { emit s->finished(); }
+    } finishGuard(this);
+
     QString file = _SFDLFile;
     QStringList passwords = _passwordList;
 
@@ -112,25 +174,35 @@ void sfdl::readSFDL()
 
     QDomElement root = sfdl.firstChildElement();
 
+    QString Encrypted;
     QString Description;
     QString Uploader;
     QString SFDLFileVersion;
-    QString Encrypted;
     QString MaxDownloadThreads;
 
-    Description = ListElements(root, "Description");
+    Encrypted = ListElements(root, "Encrypted");
+
+    const bool isEncrypted = (Encrypted.trimmed().compare("true", Qt::CaseInsensitive) == 0);
+    const QString rawDescription = ListElements(root, "Description").trimmed();
+    bool descriptionIsPlainFallback = false;
+
+    if(rawDescription.isEmpty())
+    {
+        Description = sanitizeString(QFileInfo(_SFDLFile).baseName());
+        descriptionIsPlainFallback = true;
+    }
+    else if(isEncrypted)
+    {
+        Description = rawDescription;
+    }
+    else
+    {
+        Description = sanitizeString(rawDescription);
+    }
+
     Uploader = ListElements(root, "Uploader");
     SFDLFileVersion = ListElements(root, "SFDLFileVersion");
-    Encrypted = ListElements(root, "Encrypted");
     MaxDownloadThreads = ListElements(root, "MaxDownloadThreads");
-
-    // if there is no description set in the sfdl file
-    // we use the filename for the download naming
-    if(!Description.length())
-    {
-        QFileInfo fileInfo(_SFDLFile);
-        Description = fileInfo.baseName();
-    }
 
     n_data.append("Description|" + Description);
     n_data.append("Uploader|" + Uploader);
@@ -138,7 +210,6 @@ void sfdl::readSFDL()
     n_data.append("Encrypted|" + Encrypted);
     n_data.append("MaxDownloadThreads|" + MaxDownloadThreads);
 
-    // ConnectionInfo
     QDomNodeList ConnectionInfos = root.elementsByTagName("ConnectionInfo");
 
     QString Name;
@@ -208,17 +279,15 @@ void sfdl::readSFDL()
     n_data.append("DataStaleDetection|" + DataStaleDetection);
     n_data.append("SpecialServerMode|" + SpecialServerMode);
 
-    // check for password protection and decrypt sfdl data
-    // QString sfdlPassword = "mlcboard.com";
     QString sfdlPassword = QString();
 
-    if(n_data.at(4).split("|").at(1) == "true")
+    if(isEncrypted)
     {
         bool ipTextOK = false;
 
         for(int i = 0; i < passwords.count(); i++)
         {
-            QString passTest = decryptString(passwords.at(i), n_data.at(7).split("|").at(1));
+            QString passTest = decryptString(passwords.at(i), entryValue(n_data, 7));
 
             if(passTest != "__fail__to__decrypt__" && !passTest.isEmpty() && validateIPv4(passTest))
             {
@@ -230,16 +299,15 @@ void sfdl::readSFDL()
 
         if(!ipTextOK)
         {
-            sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht entschlüsseln! (Falsches Passwort: ") + sfdlPassword + ")</font>");
+            sendLogText("<font color=\"red\">" + file + tr(": Kann SFDL Datei nicht entschlüsseln! (Kein passendes Passwort in der Liste)</font>"));
             return;
         }
 
-        sendLogText(file + tr(": Erfogreich mit Passwort <b>") + sfdlPassword + tr("</b> entschlüsselt."));
+        sendLogText(file + tr(": Erfolgreich mit Passwort <b>") + sfdlPassword + tr("</b> entschlüsselt."));
 
         for(int i = 0; i < n_data.count(); i++)
         {
-            QString dataInfo = n_data.at(i).split("|").at(0);
-            QString dataContent;
+            const QString dataInfo = entryKey(n_data, i);
 
             if(dataInfo == "Host" ||
                     dataInfo == "Username" ||
@@ -248,32 +316,32 @@ void sfdl::readSFDL()
                     dataInfo == "Description" ||
                     dataInfo == "DefaultPath")
             {
-                QString dec = decryptString(sfdlPassword, n_data.at(i).split("|").at(1));
+                if(dataInfo == "Description" && descriptionIsPlainFallback)
+                {
+                    continue;
+                }
 
-                if(n_data.at(i).split("|").at(0) == "Host")
+                QString dec = decryptString(sfdlPassword, entryValue(n_data, i));
+
+                if(dataInfo == "Description")
+                {
+                    dec = sanitizeString(dec);
+                    Description = dec;
+                }
+                else if(dataInfo == "Host")
                 {
                     Host = dec;
                 }
-
-                /*
-                if(n_data.at(i).split("|").at(0) == "Port")
-                {
-                    Port = dec.toInt();
-                }
-                */
-
-                if(n_data.at(i).split("|").at(0) == "Username")
+                else if(dataInfo == "Username")
                 {
                     Username = dec;
                 }
-
-                if(n_data.at(i).split("|").at(0) == "Password")
+                else if(dataInfo == "Password")
                 {
                     Password = dec;
                 }
 
-                dataContent = n_data.at(i).split("|").at(0) + "|" + dec;
-                n_data[i] = dataContent;
+                n_data[i] = dataInfo + "|" + dec;
             }
         }
     }
@@ -311,13 +379,17 @@ void sfdl::readSFDL()
                                     {
                                         QDomElement info = snode.toElement();
 
-                                        // qDebug() << "BulkFolderPath: " << ListElements(info, "BulkFolderPath");
-
                                         QString BulkFolderPath = ListElements(info, "BulkFolderPath");
 
-                                        if(n_data.at(4).split("|").at(1) == "true")
+                                        if(isEncrypted)
                                         {
                                             BulkFolderPath = decryptString(sfdlPassword, BulkFolderPath);
+                                        }
+
+                                        if(hasPathTraversal(BulkFolderPath))
+                                        {
+                                            sendLogText("<font color=\"red\">" + file + tr(": Unsicherer Pfad in SFDL Datei (\"..\")! Abbruch.</font>"));
+                                            return;
                                         }
 
                                         n_data.append("BulkFolderPath|" + BulkFolderPath);
@@ -334,7 +406,6 @@ void sfdl::readSFDL()
             }
             else
             {
-                //qDebug() << "BulkFolderMode = false";
                 n_data.append("BulkFolderPath|false");
 
                 QDomNodeList SFDLPackage = info.elementsByTagName("SFDLPackage");
@@ -344,7 +415,6 @@ void sfdl::readSFDL()
                     if(snode.isElement())
                     {
                         QDomElement info = snode.toElement();
-                        //qDebug() << "Packagename: " << ListElements(info, "Packagename");
 
                         QDomNodeList FileList = info.elementsByTagName("FileList");
                         for(int i = 0; i < FileList.count(); i++)
@@ -362,7 +432,7 @@ void sfdl::readSFDL()
                                     {
                                         QDomElement info = snode.toElement();
 
-                                        qlonglong size = ListElements(info, "FileSize").toInt();
+                                        qlonglong size = ListElements(info, "FileSize").toLongLong();
 
                                         QString theFilePath;
                                         theFilePath = ListElements(info, "DirectoryPath");
@@ -380,8 +450,13 @@ void sfdl::readSFDL()
                                             qDebug() << "FileFullPath: " << FileFullPath;
                                         #endif
 
-                                        n_files.append(FileFullPath + "|" + QString::number(size));
+                                        if(hasPathTraversal(FileFullPath))
+                                        {
+                                            sendLogText("<font color=\"red\">" + file + tr(": Unsicherer Dateipfad in SFDL Datei (\"..\")! Abbruch.</font>"));
+                                            return;
+                                        }
 
+                                        n_files.append(FileFullPath + "|" + QString::number(size));
                                     }
                                 }
                             }
@@ -393,5 +468,4 @@ void sfdl::readSFDL()
     }
 
     emit sendSFDLData(n_data, n_files);
-    emit finished();
 }

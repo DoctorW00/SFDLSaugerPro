@@ -135,6 +135,10 @@ private slots:
     void updateDownloadFileStatus(QString tabID, int nRow, QString statusMsg, int status);
     void downloadError(QString error);
     void updateChunkedDownloadProgress(QString tabID, int nRow, int chunkIndex, qint64 chunkRead, qint64 totalSize);
+    void onChunkFinished(QString tabID, int nRow, int chunkIndex);
+    void applyFileStatus(QString tabID, int nRow, QString statusMsg, int status, bool releaseSlot);
+    void releaseDownloadSlot(const QString &tabID);
+    bool rowHasActiveWorker(const QString &tabID, int row) const;
 
     // after download task manager
     void runNextStep(const QString& tabID);
@@ -213,6 +217,12 @@ private:
     int g_runningDownloads = 0;
     int g_maxDownloads = 10;
     QMap<QString, int> g_tabDownloads;
+
+    struct RowSession { qint64 startMs = 0; qint64 baseRead = 0; };
+    QHash<QString, RowSession> m_rowSessions;
+    QHash<QString, qint64> m_lastRowUpdate;
+    QSet<QString> m_stoppedTabs;
+    QSet<QString> m_pendingRestart;
 
     // crc32 threads
     // QList<Crc32*> g_CRC32Worker;
