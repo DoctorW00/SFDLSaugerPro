@@ -81,9 +81,6 @@ jobs:
           cd build
           /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
-      - name: Use macdeployqt to deploy the app
-        run: |
-          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
       - name: Create Info.plist
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
@@ -117,6 +114,9 @@ jobs:
           </dict>
           </plist>
           EOF
+      - name: Use macdeployqt to deploy the app
+        run: |
+          /usr/local/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
       - name: Copy unrar lib to SFDLSaugerPro.app
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
