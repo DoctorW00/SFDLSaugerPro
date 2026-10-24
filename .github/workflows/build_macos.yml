@@ -100,6 +100,23 @@ jobs:
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 -always-overwrite
 
+      - name: Verify Qt plugins were deployed
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          echo "--- PlugIns ---"
+          find "$APP/Contents/PlugIns" -maxdepth 2 -type f | sort || true
+          if [ ! -f "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" ]; then
+            echo "::error::libqcocoa.dylib fehlt im Bundle - macdeployqt hat das Cocoa-Plugin nicht deployt"
+            exit 1
+          fi
+          echo "--- Abhaengigkeiten libqcocoa ---"
+          otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib"
+          # Alles, was noch auf Homebrew/absolute Pfade zeigt, ist ein Fehler
+          if otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" | grep -E '/opt/homebrew|/usr/local'; then
+            echo "::error::libqcocoa verweist noch auf Pfade ausserhalb des Bundles"
+            exit 1
+          fi
+
       - name: Create Info.plist and qt.conf
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
@@ -112,6 +129,20 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
           <plist version="1.0">
           <dict>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>SFDLSaugerPro</string>
+              <key>CFBundleDisplayName</key>
+              <string>SFDLSaugerPro</string>
+              <key>CFBundleVersion</key>
+              <string>${{ env.APP_VERSION }}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${{ env.APP_VERSION }}</string>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
               <key>CFBundleExecutable</key>
               <string>SFDLSaugerPro</string>
               <key>CFBundleIconFile</key>
@@ -156,6 +187,59 @@ jobs:
           codesign --force --sign "-" --entitlements entitlements.plist --timestamp=none build/SFDLSaugerPro.app
           codesign -vvv --deep --strict build/SFDLSaugerPro.app
 
+      - name: Diagnose (Smoke test + Bibliotheken + Signatur)
+        continue-on-error: true
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          LOG="diagnose.log"
+          {
+            echo "===== macOS Runner ====="; sw_vers; uname -m
+            echo; echo "===== Bundle-Inhalt (PlugIns) ====="
+            find "$APP/Contents/PlugIns" -type f | sort
+            echo; echo "===== Mach-O mit Pfaden ausserhalb des Bundles ====="
+            find "$APP" -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
+              if file "$f" | grep -q Mach-O; then
+                otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}' \
+                  | grep -vE '^(@|/usr/lib/|/System/)' | sed "s|^|$f -> |"
+              fi
+            done
+            echo; echo "===== Nicht aufloesbare @rpath/@executable_path Referenzen ====="
+            find "$APP" -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
+              if file "$f" | grep -q Mach-O; then
+                d=$(dirname "$f")
+                otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}' | grep -E '^@' | while read r; do
+                  p=${r/@executable_path/$APP/Contents/MacOS}
+                  p=${p/@loader_path/$d}
+                  [[ "$p" == @rpath/* ]] && continue
+                  [ -e "$p" ] || echo "FEHLT: $f -> $r"
+                done
+              fi
+            done
+            echo; echo "===== Signatur ====="
+            codesign -dvv "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" 2>&1
+            codesign -dvv "$APP" 2>&1
+            codesign -vvv --deep --strict "$APP" 2>&1
+            echo; echo "===== Start direkt aus Bundle (QT_DEBUG_PLUGINS=1) ====="
+          } > "$LOG" 2>&1
+          export QT_DEBUG_PLUGINS=1
+          "$APP/Contents/MacOS/SFDLSaugerPro" >> "$LOG" 2>&1 &
+          PID=$!
+          sleep 8
+          if kill -0 $PID 2>/dev/null; then
+            echo "STARTUP OK" | tee -a "$LOG"; kill $PID || true
+          else
+            echo "STARTUP FEHLGESCHLAGEN" | tee -a "$LOG"
+          fi
+          cat "$LOG"
+
+      - name: Upload Diagnose-Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnose-log
+          path: diagnose.log
+          if-no-files-found: ignore
+
       - name: Create DMG package
         run: |
           chmod -R 755 build/SFDLSaugerPro.app
@@ -171,6 +255,8 @@ jobs:
         with:
           name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
+
+
 
 
 
