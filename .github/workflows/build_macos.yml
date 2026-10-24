@@ -155,6 +155,36 @@ jobs:
           cp unrar/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.dylib
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
 
+      - name: Fix missing @rpath libraries (macdeployqt Luecken schliessen)
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          FW="$APP/Contents/Frameworks"
+          for i in 1 2 3 4 5 6; do
+            COPIED=0
+            while IFS= read -r f; do
+              file "$f" | grep -q "Mach-O" || continue
+              for dep in $(otool -L "$f" | tail -n +2 | awk '{print $1}' | grep '^@rpath/'); do
+                case "$dep" in *.framework/*) continue;; esac
+                base=$(basename "$dep")
+                [ -e "$FW/$base" ] && continue
+                src=""
+                [ -e "/opt/homebrew/lib/$base" ] && src="/opt/homebrew/lib/$base"
+                [ -z "$src" ] && src=$(find /opt/homebrew/Cellar /opt/homebrew/opt -name "$base" 2>/dev/null | head -1)
+                if [ -z "$src" ]; then
+                  echo "::error::$base (benoetigt von $f) nicht in Homebrew gefunden"
+                  exit 1
+                fi
+                cp -L "$src" "$FW/$base"
+                chmod u+w "$FW/$base"
+                echo "kopiert: $base  (benoetigt von $f)"
+                COPIED=1
+              done
+            done < <(find "$APP/Contents" -type f \( -name "*.dylib" -o -path "*/MacOS/*" -o -path "*.framework/Versions/*/*" \))
+            [ "$COPIED" = "0" ] && break
+          done
+          echo "--- Frameworks nach dem Fix ---"
+          ls "$FW"
+
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
@@ -282,6 +312,8 @@ jobs:
         with:
           name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
+
+
 
 
 
