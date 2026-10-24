@@ -8,17 +8,29 @@ on:
 #      - main
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   macos:
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Install Qt5
         run: |
           brew update
           brew install qt@5
           brew link qt@5 --force
+
       - name: Debug Qt5 Installation
         run: |
           echo "Checking Qt5 installation..."
@@ -26,10 +38,12 @@ jobs:
           ls -l /opt/homebrew/opt/qt@5/bin || true
           which qmake
           qmake --version || true
+
       - name: Set up Xcode command-line tools
         run: |
           sudo xcode-select --switch /Applications/Xcode.app
           xcode-select --install || true
+
       - name: Build ftplib
         run: |
           git clone https://github.com/DoctorW00/qtftp.git
@@ -37,6 +51,7 @@ jobs:
           /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release || /usr/local/opt/qt@5/bin/qmake CONFIG+=release
           make
           sudo make install
+
       - name: Build unrar library
         run: |
           cd unrar
@@ -44,6 +59,7 @@ jobs:
           make lib CXXFLAGS="-arch arm64"
           mv libunrar.so libunrar.dylib
           ls -la
+
       - name: Create entitlements.plist
         run: |
           cat > entitlements.plist << EOF
@@ -72,15 +88,28 @@ jobs:
           EOF
           cat entitlements.plist
           plutil -lint entitlements.plist || { echo "entitlements.plist is invalid"; exit 1; }
+
       - name: Build C++ with Qt5
         run: |
           mkdir build
           cd build
           /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
+
       - name: Use macdeployqt to deploy the app
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
+
+      - name: Verify Qt plugins were deployed
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          echo "--- PlugIns ---"
+          find "$APP/Contents/PlugIns" -maxdepth 2 -type f | sort || true
+          if [ ! -f "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" ]; then
+            echo "::error::libqcocoa.dylib fehlt im Bundle - macdeployqt hat das Cocoa-Plugin nicht deployt"
+            exit 1
+          fi
+
       - name: Create Info.plist
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
@@ -105,6 +134,11 @@ jobs:
               <string>????</string>
               <key>LSMinimumSystemVersion</key>
               <string>10.13</string>
+              <key>LSEnvironment</key>
+              <dict>
+                  <key>QT_DEBUG_PLUGINS</key>
+                  <string>1</string>
+              </dict>
               <key>NSDocumentsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
@@ -114,11 +148,13 @@ jobs:
           </dict>
           </plist>
           EOF
+
       - name: Copy unrar lib to SFDLSaugerPro.app
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
           cp unrar/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.dylib
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
@@ -129,17 +165,113 @@ jobs:
           fi
           codesign --force --sign "-" --entitlements entitlements.plist --timestamp=none build/SFDLSaugerPro.app
           codesign -vvv --deep --strict build/SFDLSaugerPro.app
+
+      - name: Diagnose (Smoke test + Bibliotheken + Signatur)
+        continue-on-error: true
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          LOG="diagnose.log"
+          {
+            echo "===== macOS Runner ====="; sw_vers; uname -m
+            echo; echo "===== Qt-Versionen ====="
+            brew list --versions qt@5 || true
+            ls /opt/homebrew/Cellar/qt@5 2>/dev/null || true
+            which -a qmake || true
+            /opt/homebrew/opt/qt@5/bin/qmake --version || true
+            echo "-- QtCore im Bundle:"
+            otool -L "$APP/Contents/Frameworks/QtCore.framework/Versions/5/QtCore" | head -3
+            echo "-- Qt-Version laut App-Binary:"
+            otool -L "$APP/Contents/MacOS/SFDLSaugerPro" | grep -E "QtCore|QtGui"
+            echo "-- Qt-Version laut libqcocoa:"
+            otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" | grep -E "QtCore|QtGui"
+            echo "-- Architekturen:"
+            file "$APP/Contents/MacOS/SFDLSaugerPro" "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" "$APP/Contents/Frameworks/QtCore.framework/Versions/5/QtCore"
+            echo "-- Bundle-Struktur:"
+            ls -la "$APP/Contents" "$APP/Contents/MacOS" "$APP/Contents/Resources" 2>&1
+            plutil -p "$APP/Contents/Info.plist" 2>&1
+            echo; echo "===== Bundle-Inhalt (PlugIns) ====="
+            find "$APP/Contents/PlugIns" -type f | sort
+            echo; echo "===== Mach-O mit Pfaden ausserhalb des Bundles ====="
+            find "$APP" -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
+              if file "$f" | grep -q Mach-O; then
+                otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}' \
+                  | grep -vE '^(@|/usr/lib/|/System/)' | sed "s|^|$f -> |"
+              fi
+            done
+            echo; echo "===== Nicht aufloesbare @rpath/@executable_path Referenzen ====="
+            find "$APP" -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
+              if file "$f" | grep -q Mach-O; then
+                d=$(dirname "$f")
+                otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}' | grep -E '^@' | while read r; do
+                  p=${r/@executable_path/$APP/Contents/MacOS}
+                  p=${p/@loader_path/$d}
+                  [[ "$p" == @rpath/* ]] && continue
+                  [ -e "$p" ] || echo "FEHLT: $f -> $r"
+                done
+              fi
+            done
+            echo; echo "===== Signatur ====="
+            codesign -dvv "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" 2>&1
+            codesign -dvv "$APP" 2>&1
+            codesign -vvv --deep --strict "$APP" 2>&1
+            echo; echo "===== Start direkt aus Bundle (QT_DEBUG_PLUGINS=1) ====="
+          } > "$LOG" 2>&1
+          export QT_DEBUG_PLUGINS=1
+          "$APP/Contents/MacOS/SFDLSaugerPro" >> "$LOG" 2>&1 &
+          PID=$!
+          sleep 8
+          if kill -0 $PID 2>/dev/null; then
+            echo "STARTUP OK" | tee -a "$LOG"; kill $PID || true
+          else
+            echo "STARTUP FEHLGESCHLAGEN" | tee -a "$LOG"
+          fi
+          cat "$LOG"
+
+      - name: Clean-Room-Test (App ohne Homebrew starten)
+        continue-on-error: true
+        run: |
+          LOG="$PWD/cleanroom.log"
+          rm -rf /tmp/cr && mkdir -p /tmp/cr
+          cp -R build/SFDLSaugerPro.app /tmp/cr/
+          # Homebrew (und damit Qt) fuer den Test aus dem Weg raeumen
+          sudo mv /opt/homebrew /opt/homebrew.off
+          restore() { sudo mv /opt/homebrew.off /opt/homebrew 2>/dev/null || true; }
+          trap restore EXIT
+          export QT_DEBUG_PLUGINS=1
+          /tmp/cr/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro > "$LOG" 2>&1 &
+          PID=$!
+          sleep 10
+          if kill -0 $PID 2>/dev/null; then
+            RESULT="CLEANROOM OK - App laeuft ohne Homebrew"
+            kill $PID || true
+          else
+            RESULT="CLEANROOM FEHLGESCHLAGEN - App startet ohne Homebrew nicht"
+          fi
+          restore
+          echo "$RESULT" | tee -a "$LOG"
+          {
+            echo "## Clean-Room-Test"
+            echo "**$RESULT**"
+            echo '```'
+            grep -iE "cannot load|library not loaded|reason|could not|fatal|error|mismatch|platform" "$LOG" | head -40
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$LOG"
+
+      - name: Upload Diagnose-Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnose-log
+          path: |
+            diagnose.log
+            cleanroom.log
+          if-no-files-found: ignore
+
       - name: Create DMG package
         run: |
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
-
-      - name: Extract version from .pro file
-        id: get_version
-        shell: bash
-        run: |
-          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Rename DMG for Apple Silicon
         run: |
@@ -150,6 +282,8 @@ jobs:
         with:
           name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
+
+
 
 
 
