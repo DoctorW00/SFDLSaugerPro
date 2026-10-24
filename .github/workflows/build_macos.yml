@@ -100,6 +100,29 @@ jobs:
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 -always-overwrite
 
+      - name: Fix absolute Homebrew paths in Qt plugins
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          find "$APP/Contents/PlugIns" -type f -name "*.dylib" | while read f; do
+            name=$(basename "$f")
+            # eigene Install-ID relativ machen
+            install_name_tool -id "@loader_path/$name" "$f"
+            # absolute Homebrew-Referenzen umbiegen
+            otool -L "$f" | tail -n +2 | awk '{print $1}' | grep -E '^(/opt/homebrew|/usr/local/(opt|Cellar))' | while read dep; do
+              base=$(basename "$dep")
+              if [ "$base" = "$name" ]; then
+                install_name_tool -change "$dep" "@loader_path/$name" "$f"
+              elif [ -f "$APP/Contents/Frameworks/$base" ]; then
+                install_name_tool -change "$dep" "@executable_path/../Frameworks/$base" "$f"
+              elif [ -d "$APP/Contents/Frameworks/$(echo "$dep" | grep -o '[A-Za-z0-9]*\.framework' | head -1)" ]; then
+                fw=$(echo "$dep" | sed -E 's|.*/([A-Za-z0-9]+\.framework/.*)|\1|')
+                install_name_tool -change "$dep" "@executable_path/../Frameworks/$fw" "$f"
+              else
+                echo "::error::Unaufgeloeste Abhaengigkeit in $f: $dep"; exit 1
+              fi
+            done
+          done
+
       - name: Verify Qt plugins were deployed
         run: |
           APP="build/SFDLSaugerPro.app"
@@ -111,9 +134,10 @@ jobs:
           fi
           echo "--- Abhaengigkeiten libqcocoa ---"
           otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib"
-          # Alles, was noch auf Homebrew/absolute Pfade zeigt, ist ein Fehler
-          if otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" | grep -E '/opt/homebrew|/usr/local'; then
-            echo "::error::libqcocoa verweist noch auf Pfade ausserhalb des Bundles"
+          BAD=$(find "$APP/Contents/PlugIns" -name "*.dylib" -exec sh -c 'otool -L "$1" | tail -n +2 | grep -E "/opt/homebrew|/usr/local" | sed "s|^|$1: |"' _ {} \;)
+          if [ -n "$BAD" ]; then
+            echo "$BAD"
+            echo "::error::Plugins verweisen noch auf Pfade ausserhalb des Bundles"
             exit 1
           fi
 
