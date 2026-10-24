@@ -46,7 +46,7 @@ jobs:
 
       - name: Build ftplib
         run: |
-          https://github.com/DoctorW00/qtftp.git
+          git clone https://github.com/DoctorW00/qtftp.git
           cd qtftp
           /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release || /usr/local/opt/qt@5/bin/qmake CONFIG+=release
           make
