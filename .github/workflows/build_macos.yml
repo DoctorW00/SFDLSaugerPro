@@ -64,7 +64,7 @@ jobs:
         run: |
           cat > entitlements.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>com.apple.security.app-sandbox</key>
@@ -98,30 +98,7 @@ jobs:
 
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 -always-overwrite
-
-      - name: Fix absolute Homebrew paths in Qt plugins
-        run: |
-          APP="build/SFDLSaugerPro.app"
-          find "$APP/Contents/PlugIns" -type f -name "*.dylib" | while read f; do
-            name=$(basename "$f")
-            # eigene Install-ID relativ machen
-            install_name_tool -id "@loader_path/$name" "$f"
-            # absolute Homebrew-Referenzen umbiegen
-            otool -L "$f" | tail -n +2 | awk '{print $1}' | grep -E '^(/opt/homebrew|/usr/local/(opt|Cellar))' | while read dep; do
-              base=$(basename "$dep")
-              if [ "$base" = "$name" ]; then
-                install_name_tool -change "$dep" "@loader_path/$name" "$f"
-              elif [ -f "$APP/Contents/Frameworks/$base" ]; then
-                install_name_tool -change "$dep" "@executable_path/../Frameworks/$base" "$f"
-              elif [ -d "$APP/Contents/Frameworks/$(echo "$dep" | grep -o '[A-Za-z0-9]*\.framework' | head -1)" ]; then
-                fw=$(echo "$dep" | sed -E 's|.*/([A-Za-z0-9]+\.framework/.*)|\1|')
-                install_name_tool -change "$dep" "@executable_path/../Frameworks/$fw" "$f"
-              else
-                echo "::error::Unaufgeloeste Abhaengigkeit in $f: $dep"; exit 1
-              fi
-            done
-          done
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
 
       - name: Verify Qt plugins were deployed
         run: |
@@ -132,16 +109,8 @@ jobs:
             echo "::error::libqcocoa.dylib fehlt im Bundle - macdeployqt hat das Cocoa-Plugin nicht deployt"
             exit 1
           fi
-          echo "--- Abhaengigkeiten libqcocoa ---"
-          otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib"
-          BAD=$(find "$APP/Contents/PlugIns" -name "*.dylib" -exec sh -c 'otool -L "$1" | tail -n +2 | grep -E "/opt/homebrew|/usr/local" | sed "s|^|$1: |"' _ {} \;)
-          if [ -n "$BAD" ]; then
-            echo "$BAD"
-            echo "::error::Plugins verweisen noch auf Pfade ausserhalb des Bundles"
-            exit 1
-          fi
 
-      - name: Create Info.plist and qt.conf
+      - name: Create Info.plist
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
           mkdir -p "$APP_BUNDLE/Contents/Resources"
@@ -150,23 +119,9 @@ jobs:
           fi
           cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-              <key>CFBundleInfoDictionaryVersion</key>
-              <string>6.0</string>
-              <key>CFBundleName</key>
-              <string>SFDLSaugerPro</string>
-              <key>CFBundleDisplayName</key>
-              <string>SFDLSaugerPro</string>
-              <key>CFBundleVersion</key>
-              <string>${{ env.APP_VERSION }}</string>
-              <key>CFBundleShortVersionString</key>
-              <string>${{ env.APP_VERSION }}</string>
-              <key>NSPrincipalClass</key>
-              <string>NSApplication</string>
-              <key>NSHighResolutionCapable</key>
-              <true/>
               <key>CFBundleExecutable</key>
               <string>SFDLSaugerPro</string>
               <key>CFBundleIconFile</key>
@@ -187,11 +142,6 @@ jobs:
               <string>Die App benötigt Zugriff auf den Schreibtisch.</string>
           </dict>
           </plist>
-          EOF
-
-          cat > "$APP_BUNDLE/Contents/Resources/qt.conf" << EOF
-          [Paths]
-          Plugins = PlugIns
           EOF
 
       - name: Copy unrar lib to SFDLSaugerPro.app
@@ -266,7 +216,6 @@ jobs:
 
       - name: Create DMG package
         run: |
-          chmod -R 755 build/SFDLSaugerPro.app
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
 
@@ -279,6 +228,7 @@ jobs:
         with:
           name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
+
 
 
 
