@@ -98,7 +98,7 @@ jobs:
 
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 -plugins
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 -always-overwrite
 
       - name: Create Info.plist and qt.conf
         run: |
