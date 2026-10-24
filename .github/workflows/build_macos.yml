@@ -17,11 +17,20 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Extract version from .pro file
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Install Qt5
         run: |
           brew update
           brew install qt@5
           brew link qt@5 --force
+
       - name: Debug Qt5 Installation
         run: |
           echo "Checking Qt5 installation..."
@@ -29,17 +38,20 @@ jobs:
           ls -l /opt/homebrew/opt/qt@5/bin || true
           which qmake
           qmake --version || true
+
       - name: Set up Xcode command-line tools
         run: |
           sudo xcode-select --switch /Applications/Xcode.app
           xcode-select --install || true
+
       - name: Build ftplib
         run: |
-          git clone https://github.com/DoctorW00/qtftp.git
+          git clone https://github.com
           cd qtftp
           /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release || /usr/local/opt/qt@5/bin/qmake CONFIG+=release
           make
           sudo make install
+
       - name: Build unrar library
         run: |
           cd unrar
@@ -47,11 +59,12 @@ jobs:
           make lib CXXFLAGS="-arch arm64"
           mv libunrar.so libunrar.dylib
           ls -la
+
       - name: Create entitlements.plist
         run: |
           cat > entitlements.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
           <plist version="1.0">
           <dict>
               <key>com.apple.security.app-sandbox</key>
@@ -75,16 +88,19 @@ jobs:
           EOF
           cat entitlements.plist
           plutil -lint entitlements.plist || { echo "entitlements.plist is invalid"; exit 1; }
+
       - name: Build C++ with Qt5
         run: |
           mkdir build
           cd build
           /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
+
       - name: Use macdeployqt to deploy the app
         run: |
-          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
-      - name: Create Info.plist
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2 -plugins
+
+      - name: Create Info.plist and qt.conf
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
           mkdir -p "$APP_BUNDLE/Contents/Resources"
@@ -93,7 +109,7 @@ jobs:
           fi
           cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
@@ -117,37 +133,43 @@ jobs:
           </dict>
           </plist>
           EOF
+
+          cat > "$APP_BUNDLE/Contents/Resources/qt.conf" << EOF
+          [Paths]
+          Plugins = PlugIns
+          EOF
+
       - name: Copy unrar lib to SFDLSaugerPro.app
         run: |
           mkdir -p build/SFDLSaugerPro.app/Contents/Frameworks/
           cp unrar/libunrar.dylib build/SFDLSaugerPro.app/Contents/Frameworks/libunrar.dylib
           install_name_tool -change libunrar.so @executable_path/../Frameworks/libunrar.dylib build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro
+
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
+          if [ -d "build/SFDLSaugerPro.app/Contents/PlugIns" ]; then
+            find build/SFDLSaugerPro.app/Contents/PlugIns -type f -name "*.dylib" -exec codesign --force --sign "-" --timestamp=none {} \;
+          fi
           find build/SFDLSaugerPro.app/Contents/Frameworks -name "*.framework" -exec codesign --force --sign "-" --timestamp=none {} \;
           find build/SFDLSaugerPro.app/Contents/Frameworks -name "*.dylib" -exec codesign --force --sign "-" --timestamp=none {} \;
-          if [ -d "build/SFDLSaugerPro.app/Contents/PlugIns" ]; then
-            find build/SFDLSaugerPro.app/Contents/PlugIns -name "*.dylib" -exec codesign --force --sign "-" --timestamp=none {} \;
-          fi
           codesign --force --sign "-" --entitlements entitlements.plist --timestamp=none build/SFDLSaugerPro.app
           codesign -vvv --deep --strict build/SFDLSaugerPro.app
+
       - name: Create DMG package
         run: |
+          chmod -R 755 build/SFDLSaugerPro.app
           hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
-      - name: Extract version from .pro file
-        id: get_version
-        shell: bash
-        run: |
-          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Rename DMG for Apple Silicon
         run: |
           mv build/SFDLSaugerPro.dmg "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
+
       - name: Upload .dmg Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
+
 
