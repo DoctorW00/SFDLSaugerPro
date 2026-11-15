@@ -22,7 +22,12 @@ jobs:
         id: get_version
         shell: bash
         run: |
-          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r')
+          VERSION=$(grep -E '^[[:space:]]*VERSION[[:space:]]*=' *.pro | head -n 1 | sed 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '\r' | xargs)
+          if [ -z "$VERSION" ]; then
+            echo "::error::VERSION konnte nicht aus der .pro Datei gelesen werden"
+            exit 1
+          fi
+          echo "Version: $VERSION"
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Install Qt5
@@ -41,8 +46,8 @@ jobs:
 
       - name: Set up Xcode command-line tools
         run: |
-          sudo xcode-select --switch /Applications/Xcode.app
-          xcode-select --install || true
+          sudo xcode-select --switch /Applications/Xcode.app || true
+          xcode-select -p
 
       - name: Build ftplib
         run: |
@@ -59,6 +64,15 @@ jobs:
           make lib CXXFLAGS="-arch arm64"
           mv libunrar.so libunrar.dylib
           ls -la
+
+      - name: Check icon file
+        run: |
+          if [ ! -f "icon.icns" ]; then
+            echo "::error::icon.icns fehlt im Repository-Root - Dock-Icon waere unsichtbar/generisch"
+            exit 1
+          fi
+          file icon.icns
+          ls -la icon.icns
 
       - name: Create entitlements.plist
         run: |
@@ -96,6 +110,15 @@ jobs:
           /opt/homebrew/opt/qt@5/bin/qmake ../ CONFIG+=release || /usr/local/opt/qt@5/bin/qmake ../ CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
 
+      - name: Verify native Dock progress (NSDockTile) was compiled in
+        run: |
+          BIN="build/SFDLSaugerPro.app/Contents/MacOS/SFDLSaugerPro"
+          if ! nm "$BIN" | grep -q "macSetDockProgress"; then
+            echo "::error::macSetDockProgress fehlt im Binary - taskbarprogressmanager_mac.mm wurde nicht kompiliert/gelinkt"
+            exit 1
+          fi
+          echo "macSetDockProgress gefunden"
+
       - name: Use macdeployqt to deploy the app
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/SFDLSaugerPro.app -verbose=2
@@ -114,9 +137,7 @@ jobs:
         run: |
           APP_BUNDLE="build/SFDLSaugerPro.app"
           mkdir -p "$APP_BUNDLE/Contents/Resources"
-          if [ -f "icon.icns" ]; then
-            cp icon.icns "$APP_BUNDLE/Contents/Resources/"
-          fi
+          cp icon.icns "$APP_BUNDLE/Contents/Resources/icon.icns"
           cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -124,6 +145,10 @@ jobs:
           <dict>
               <key>CFBundleExecutable</key>
               <string>SFDLSaugerPro</string>
+              <key>CFBundleName</key>
+              <string>SFDLSaugerPro</string>
+              <key>CFBundleDisplayName</key>
+              <string>SFDLSauger Pro</string>
               <key>CFBundleIconFile</key>
               <string>icon.icns</string>
               <key>CFBundleIdentifier</key>
@@ -132,13 +157,35 @@ jobs:
               <string>APPL</string>
               <key>CFBundleSignature</key>
               <string>????</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleVersion</key>
+              <string>${APP_VERSION}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${APP_VERSION}</string>
               <key>LSMinimumSystemVersion</key>
-              <string>10.13</string>
-              <key>LSEnvironment</key>
-              <dict>
-                  <key>QT_DEBUG_PLUGINS</key>
-                  <string>1</string>
-              </dict>
+              <string>11.0</string>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>NSSupportsAutomaticGraphicsSwitching</key>
+              <true/>
+              <key>CFBundleDocumentTypes</key>
+              <array>
+                  <dict>
+                      <key>CFBundleTypeName</key>
+                      <string>SFDL File</string>
+                      <key>CFBundleTypeExtensions</key>
+                      <array>
+                          <string>sfdl</string>
+                      </array>
+                      <key>CFBundleTypeRole</key>
+                      <string>Viewer</string>
+                      <key>LSHandlerRank</key>
+                      <string>Owner</string>
+                  </dict>
+              </array>
               <key>NSDocumentsFolderUsageDescription</key>
               <string>Bitte wähle einen Ordner, in dem Daten gespeichert werden sollen.</string>
               <key>NSDownloadsFolderUsageDescription</key>
@@ -148,6 +195,19 @@ jobs:
           </dict>
           </plist>
           EOF
+          plutil -lint "$APP_BUNDLE/Contents/Info.plist" || { echo "Info.plist is invalid"; exit 1; }
+          plutil -p "$APP_BUNDLE/Contents/Info.plist"
+
+      - name: Verify icon in bundle
+        run: |
+          APP="build/SFDLSaugerPro.app"
+          ICON_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$APP/Contents/Info.plist")
+          echo "CFBundleIconFile = $ICON_NAME"
+          if [ ! -f "$APP/Contents/Resources/$ICON_NAME" ]; then
+            echo "::error::Icon $ICON_NAME fehlt in Contents/Resources"
+            exit 1
+          fi
+          ls -la "$APP/Contents/Resources"
 
       - name: Copy unrar lib to SFDLSaugerPro.app
         run: |
@@ -185,6 +245,8 @@ jobs:
           echo "--- Frameworks nach dem Fix ---"
           ls "$FW"
 
+      # Signieren erst NACH dem Schreiben der Info.plist und aller Kopier-/Fix-Schritte,
+      # sonst ist die Signatur ungueltig.
       - name: Sign the app bundle
         run: |
           xattr -cr build/SFDLSaugerPro.app
@@ -216,6 +278,8 @@ jobs:
             otool -L "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" | grep -E "QtCore|QtGui"
             echo "-- Architekturen:"
             file "$APP/Contents/MacOS/SFDLSaugerPro" "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" "$APP/Contents/Frameworks/QtCore.framework/Versions/5/QtCore"
+            echo "-- Dock-Progress Symbole:"
+            nm "$APP/Contents/MacOS/SFDLSaugerPro" | grep -i "macSetDockProgress\|macClearDockProgress" || echo "FEHLT"
             echo "-- Bundle-Struktur:"
             ls -la "$APP/Contents" "$APP/Contents/MacOS" "$APP/Contents/Resources" 2>&1
             plutil -p "$APP/Contents/Info.plist" 2>&1
@@ -300,7 +364,10 @@ jobs:
 
       - name: Create DMG package
         run: |
-          hdiutil create -volname "SFDLSaugerPro" -srcfolder build/SFDLSaugerPro.app -ov -format UDZO build/SFDLSaugerPro.dmg
+          rm -rf dmg_stage && mkdir dmg_stage
+          cp -R build/SFDLSaugerPro.app dmg_stage/
+          ln -s /Applications dmg_stage/Applications
+          hdiutil create -volname "SFDLSaugerPro" -srcfolder dmg_stage -ov -format UDZO build/SFDLSaugerPro.dmg
           codesign --force --sign "-" build/SFDLSaugerPro.dmg
 
       - name: Rename DMG for Apple Silicon
@@ -312,7 +379,6 @@ jobs:
         with:
           name: SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}
           path: "build/SFDLSaugerPro-AppleSilicon-v${{ env.APP_VERSION }}.dmg"
-
 
 
 
