@@ -29,7 +29,7 @@ jobs:
             "Build Linux AppImage x86_64 Qt5 C++;linux_x64_appimage;true;" 
             "Build Linux AppImage ARM64 Qt5 C++;linux_arm64_appimage;true;" 
             "Build Apple Silicon C++ Qt5;apple_silicon;true;" 
-            "Build Apple Intel C++ Qt5;apple_intel;true;" 
+            # "Build Apple Intel C++ Qt5;apple_intel;true;" 
             "Build Native Linux Packages Qt5 C++;linux_native_x86;true;native-packages-x86_64" 
             "Build Native Linux Packages Qt5 C++;linux_native_arm;true;native-packages-arm64" 
             "Build Windows Qt5 C++ Shared;windows_shared;false;SFDLSaugerPro-windows-v$APP_VERSION" 
