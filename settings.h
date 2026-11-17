@@ -38,6 +38,8 @@ public:
     ~Settings();
 
     static std::atomic<qint64> _globalSpeedLimitBytes;
+    static std::atomic<bool> _globalDecimalUnits;
+    static QString formatBytes(double size);
 
     void setNotificationSystem(NotificationClient *n) { m_notification = n; }
 
@@ -65,6 +67,10 @@ public:
     bool _sfdl_move_file_to_download = false;
     bool _shutdown_pc = false;
     qint64 _speedLimitKB = 0;
+    bool _size_units_decimal = false;
+    bool _speedreport_create = true;
+    bool _speedreport_auto_open = true;
+    bool _speedreport_list_files = false;
 
     // external ftp clients
     QString _ex_path_filezilla;
@@ -126,7 +132,7 @@ public slots:
     void changeLanguage(QString localeCode);
 
 private slots:
-    QString bytes2Human(float filesize);
+    QString bytes2Human(double filesize);
     void loadSettings();
     void saveSettings();
     void crc32sfvCheckBoxes();
@@ -159,6 +165,9 @@ private slots:
     void on_line_command_cmd_textChanged(const QString &text);
     void on_line_command_name_textChanged(const QString &text);
     void on_spin_speedlimit_valueChanged(int arg1);
+    void on_combo_theme_currentIndexChanged(int index);
+    void on_combo_size_units_currentIndexChanged(int index);
+    void on_chk_speedreport_files_toggled(bool checked);
 
 protected:
     void closeEvent(QCloseEvent *e) override;

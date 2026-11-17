@@ -11,6 +11,7 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
 {
     qRegisterMetaType<QString>("QString");
     ui->setupUi(this);
+    ui->splitter->setProperty("role", "mainSplitter");
     setAcceptDrops(true);
     loadWindowStatus();
 
@@ -70,8 +71,6 @@ SFDLSauger::SFDLSauger(QWidget *parent) : QMainWindow(parent), ui(new Ui::SFDLSa
     settingsWindow->setNotificationSystem(m_notifier);
 
     // menubar css
-    ui->menuBar->setStyleSheet("QMenuBar { background: #a2a2a2 url(:/gfx/menubg.png) repeat-x; color: #f1f1f1; } QMenuBar::item:selected { color: black; }");
-
     if(QSystemTrayIcon::isSystemTrayAvailable())
     {
         icon = new QSystemTrayIcon(this);
@@ -334,22 +333,9 @@ QString SFDLSauger::seconds_to_DHMS(int duration)
     }
 }
 
-QString SFDLSauger::bytes2Human(float filesize)
+QString SFDLSauger::bytes2Human(double filesize)
 {
-    float num = filesize;
-
-    QStringList list;
-    list << "KiB" << "MiB" << "GiB" << "TiB";
-
-    QStringListIterator i(list);
-    QString unit("bytes");
-
-    while(num >= 1024.0 && i.hasNext())
-    {
-        unit = i.next();
-        num /= 1024.0;
-    }
-    return QString().setNum(num,'f',2) + " " + unit;
+    return Settings::formatBytes(filesize);
 }
 
 void SFDLSauger::dragEnterEvent(QDragEnterEvent *e)
@@ -785,7 +771,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         {
 
             fileError = true;
-            addLogText("<font color=\"red\">" + tabName + tr(": Datei / Pfaderkenntung nicht möglich. Pfad unterscheidet sich vom Titel. (1)</font>"));
+            addLogText("<font color=\"#e53935\">" + tabName + tr(": Datei / Pfaderkenntung nicht möglich. Pfad unterscheidet sich vom Titel. (1)</font>"));
             break;
         }
 
@@ -813,7 +799,7 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         PROGBAR->setMaximum(100);
         PROGBAR->setValue(0);
         PROGBAR->setTextVisible(1);
-        PROGBAR->setStyleSheet("QProgressBar { border: 1px solid #420000; margin: 1px; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #c52222; width: 1px; margin: 0px; }");
+        PROGBAR->setProperty("role", "fileBar"); // Styling via ThemeManager
 
         PROGBAR->setObjectName("pbarIn_" + QString::number(i));
         file_tbl->setCellWidget(i, 5, PROGBAR);
@@ -1090,7 +1076,7 @@ int SFDLSauger::addTab(QString tabText)
     QLabel *rlsText = new QLabel();
     rlsText->setFont(releaseFont);
     rlsText->setText(tabText);
-    rlsText->setStyleSheet("background: #ffffeb; border: 1px solid #f0f0f0; padding: 3px;");
+    rlsText->setProperty("role", "releaseTitle"); // Styling via ThemeManager
     layout->addWidget(rlsText);
 
     // add tool bar
@@ -1100,7 +1086,6 @@ int SFDLSauger::addTab(QString tabText)
     tbar->setMovable(0);
     tbar->setOrientation(Qt::Horizontal);
     tbar->setIconSize(QSize(30,30));
-    tbar->setStyleSheet("background: #f0f0f0;");
 
     // add start button
     QAction *btnStart = tbar->addAction(tr("Start Download"), [](bool) {});
@@ -1211,7 +1196,7 @@ int SFDLSauger::addTab(QString tabText)
     PROGBAR->setMaximum(100);
     PROGBAR->setValue(0);
     PROGBAR->setTextVisible(1);
-    PROGBAR->setStyleSheet("QProgressBar { background: white; height: 30px; margin: 0 5px 0 5px; border: 1px solid #420000; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #c52222; width: 1px; margin: 0px; }");
+    // Styling von "mProgBar" via ThemeManager
     PROGBAR->setFixedWidth(150);
     tbar->addWidget(PROGBAR);
 
@@ -1613,7 +1598,7 @@ void SFDLSauger::stopDownload()
 
 void SFDLSauger::downloadError(QString error)
 {
-    addLogText(tr("<font color=\"red\">[") + error + tr("] Allgemeiner FTP Download Fehler!</font>"));
+    addLogText(tr("<font color=\"#e53935\">[") + error + tr("] Allgemeiner FTP Download Fehler!</font>"));
     MsgWarning(tr("Download Fehler"), "[" + error + tr("] Allgemeiner FTP Download Fehler!"));
 }
 
@@ -2068,6 +2053,13 @@ void SFDLSauger::chkAllTabDownloadsAreDone()
 // create speed report file
 void SFDLSauger::createSpeedreport(QString id)
 {
+    // no speedreport
+    if(!settingsWindow->_speedreport_create)
+    {
+        runNextStep(id);
+        return;
+    }
+
     QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("status");
     QTableWidget *widget3 = widget1->findChild<QTableWidget *>("data");
@@ -2121,16 +2113,27 @@ void SFDLSauger::createSpeedreport(QString id)
         speedreportFile.write(tr(" in ").toUtf8());
         speedreportFile.write(zeit.toUtf8());
         speedreportFile.write(tr(" geladen!\n").toUtf8());
-        speedreportFile.write(tr("[B]Dateien:[/B]\n").toUtf8());
-        for(const QString &fileName : fileList)
+
+        // add downloaded files to speedreport
+        if(settingsWindow->_speedreport_list_files)
         {
-            speedreportFile.write(fileName.toUtf8() + "\n");
+            speedreportFile.write(tr("[B]Dateien:[/B]\n").toUtf8());
+            for(const QString &fileName : fileList)
+            {
+                speedreportFile.write(fileName.toUtf8() + "\n");
+            }
         }
+
         speedreportFile.write("\n");
         speedreportFile.write(tr("[B]Kommentar:[/B] Besten Dank!\n").toUtf8());
     }
     speedreportFile.close();
-    QDesktopServices::openUrl(QUrl(speedreport, QUrl::TolerantMode));
+
+    // open speedreport
+    if(settingsWindow->_speedreport_auto_open)
+    {
+        QDesktopServices::openUrl(QUrl(speedreport, QUrl::TolerantMode));
+    }
 
     runNextStep(id);
 }
@@ -2535,7 +2538,7 @@ void SFDLSauger::unrarDeleteFiles(QString id)
                     }
                     else
                     {
-                        addLogText(tr("<font color=\"red\">Fehler beim Löschen von: %1</font>").arg(rawPath));
+                        addLogText(tr("<font color=\"#e53935\">Fehler beim Löschen von: %1</font>").arg(rawPath));
                     }
                 }
             }
@@ -2599,7 +2602,7 @@ void SFDLSauger::unrarFiles(QString id)
 
     if(jobs.isEmpty())
     {
-        addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!</font>"));
+        addLogText(tr("<font color=\"#e53935\">[") + id + tr("] UnRAR: Keine RAR Datei(en) zum auspacken gefunden!</font>"));
         m_tabWorkflows[id].currentStep = ProcessStep::SysCommands; // skip remove rar files
         runNextStep(id);
         return;
@@ -2632,7 +2635,7 @@ void SFDLSauger::processNextUnrarJob(QString id)
         QProgressBar *mProgBar = widget1->findChild<QProgressBar *>("mProgBar");
         mProgBar->setValue(100);
 
-        addLogText(tr("<font color=\"green\">[") + id + tr("] Alle UnRAR-Aufträge erfolgreich abgeschlossen!</font>"));
+        addLogText(tr("<font color=\"#43a047\">[") + id + tr("] Alle UnRAR-Aufträge erfolgreich abgeschlossen!</font>"));
         runNextStep(id);
         return;
     }
@@ -2645,7 +2648,7 @@ void SFDLSauger::processNextUnrarJob(QString id)
 
     if(!QFile::exists(currentFile))
     {
-        addLogText(tr("<font color=\"red\">[") + id + tr("] UnRAR Fehler: Datei nicht mehr vorhanden: ") + currentFile + "</font>");
+        addLogText(tr("<font color=\"#e53935\">[") + id + tr("] UnRAR Fehler: Datei nicht mehr vorhanden: ") + currentFile + "</font>");
         QMetaObject::invokeMethod(this, [this, id]() { processNextUnrarJob(id); }, Qt::QueuedConnection);
         return;
     }
@@ -2664,7 +2667,7 @@ void SFDLSauger::processNextUnrarJob(QString id)
         connect(worker, &UnrarExtractor::finished, worker, &UnrarExtractor::deleteLater);
         connect(thread, &QThread::finished, thread, &QThread::deleteLater);
         connect(worker, &UnrarExtractor::error, this, [this, id](const QString& message) {
-            addLogText(tr("<font color=\"red\">[%1] UnRAR Fehler: %2</font>").arg(id, message));
+            addLogText(tr("<font color=\"#e53935\">[%1] UnRAR Fehler: %2</font>").arg(id, message));
             m_tabWorkflows[id].currentStep = ProcessStep::SysCommands;
             runNextStep(id);
         }, Qt::QueuedConnection);
@@ -2679,7 +2682,7 @@ void SFDLSauger::processNextUnrarJob(QString id)
     {
         if(!QFileInfo::exists(settingsWindow->_unrarPath))
         {
-            addLogText(tr("<font color=\"red\">Externes UnRAR in [%1] konnte nicht gefunden werden!</font>").arg(settingsWindow->_unrarPath));
+            addLogText(tr("<font color=\"#e53935\">Externes UnRAR in [%1] konnte nicht gefunden werden!</font>").arg(settingsWindow->_unrarPath));
             m_tabWorkflows[id].currentStep = ProcessStep::SysCommands;
             runNextStep(id);
             return;
@@ -2701,7 +2704,7 @@ void SFDLSauger::processNextUnrarJob(QString id)
         connect(worker, &UnRAR::error, worker, &UnRAR::deleteLater);
         connect(thread, &QThread::finished, thread, &QThread::deleteLater);
         connect(worker, &UnRAR::error, this, [this, id](const QString& message) {
-            addLogText(tr("<font color=\"red\">[%1] Externer UnRAR Fehler: %2</font>").arg(id, message));
+            addLogText(tr("<font color=\"#e53935\">[%1] Externer UnRAR Fehler: %2</font>").arg(id, message));
             m_tabWorkflows[id].currentStep = ProcessStep::SysCommands;
             runNextStep(id);
         }, Qt::QueuedConnection);
@@ -2737,7 +2740,7 @@ void SFDLSauger::on_tabWidget_tabCloseRequested(int index)
 
     if(widget1->isEnabled() == false && statusLabel->text() != "Fehler! Bitte Logs konsultieren ...")
     {
-        addLogText("<font color=\"red\">" + widget1->objectName() + tr(": Einlesen der Daten nicht abgeschlossen! Entfernen erst nach Abschluß möglich.</font>"));
+        addLogText("<font color=\"#e53935\">" + widget1->objectName() + tr(": Einlesen der Daten nicht abgeschlossen! Entfernen erst nach Abschluß möglich.</font>"));
         return;
     }
 
@@ -3069,7 +3072,7 @@ void SFDLSauger::on_actionEinstellungen_triggered()
     settingsWindow->setWindowIcon(QIcon(":/gfx/gear.png"));
     settingsWindow->setWindowFlags(settingsWindow->windowFlags() & ~Qt::WindowContextHelpButtonHint);
     settingsWindow->setSizeGripEnabled(false);
-    settingsWindow->setFixedSize(QSize(700, 500));
+    settingsWindow->setFixedSize(QSize(800, 500));
     settingsWindow->show();
 }
 
@@ -3224,7 +3227,7 @@ void SFDLSauger::on_actionStrukturreformator_triggered()
         }
         else
         {
-            addLogText("<font color=\"red\">" + tr(": Fehler beim Neuordnen der Dateien!</font>"));
+            addLogText("<font color=\"#e53935\">" + tr(": Fehler beim Neuordnen der Dateien!</font>"));
         }
     }
 }

@@ -46,11 +46,6 @@
     </property>
     <item row="0" column="0">
      <widget class="QSplitter" name="splitter">
-      <property name="styleSheet">
-       <string notr="true">QSplitter::handle {
-	background: #FFFFFF url(:/gfx/splitter.png) center no-repeat;
-}</string>
-      </property>
       <property name="orientation">
        <enum>Qt::Orientation::Vertical</enum>
       </property>
@@ -107,10 +102,6 @@
        </property>
        <property name="acceptDrops">
         <bool>false</bool>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">border: none;
-background: #e4e4e4;</string>
        </property>
        <property name="frameShape">
         <enum>QFrame::Shape::Box</enum>
@@ -185,106 +176,6 @@ li.checked::marker { content: &quot;\2612&quot;; }
        </property>
        <property name="autoFillBackground">
         <bool>true</bool>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">QTabWidget::pane {
-	border: none;
-    /*background: #b0b0b0 url(:/gfx/tabbackground.png) center no-repeat;*/
-	background: #ffffff url(:/gfx/tabbackground.png) center no-repeat;
-	border-top: 1px solid black;
-}
-
-QTabWidget::tab-bar {
-    background: #ffffff ;
-}
-
-QTabWidget::tab-bar:top {
-    top: 1px;
-}
-
-QTabWidget::tab-bar:bottom {
-    bottom: 1px;
-}
-
-QTabWidget::tab-bar:left {
-    right: 1px;
-}
-
-QTabWidget::tab-bar:right {
-    left: 1px;
-}
-
-QTabBar::tab {
-	border: 1px solid #2d2d2d;
-}
-
-QTabBar::tab:selected {
-    background: white;
-}
-
-QTabBar::tab:!selected {
-    background: silver;
-}
-
-QTabBar::tab:!selected:hover {
-    background: #999;
-}
-
-QTabBar::tab:top:!selected {
-    margin-top: 3px;
-}
-
-QTabBar::tab:bottom:!selected {
-    margin-bottom: 3px;
-}
-
-QTabBar::tab:top, QTabBar::tab:bottom {
-    min-width: 8ex;
-    margin-right: -1px;
-    padding: 5px 10px 5px 10px;
-}
-
-QTabBar::tab:top:selected {
-    border-bottom-color: none;
-}
-
-QTabBar::tab:bottom:selected {
-    border-top-color: none;
-}
-
-QTabBar::tab:top:last, QTabBar::tab:bottom:last,
-QTabBar::tab:top:only-one, QTabBar::tab:bottom:only-one {
-    margin-right: 0;
-}
-
-QTabBar::tab:left:!selected {
-    margin-right: 3px;
-}
-
-QTabBar::tab:right:!selected {
-    margin-left: 3px;
-}
-
-QTabBar::tab:left, QTabBar::tab:right {
-    min-height: 8ex;
-    margin-bottom: -1px;
-    padding: 10px 5px 10px 5px;
-}
-
-QTabBar::tab:left:selected {
-    border-left-color: none;
-}
-
-QTabBar::tab:right:selected {
-    border-right-color: none;
-}
-
-QTabBar::tab:left:last, QTabBar::tab:right:last,
-QTabBar::tab:left:only-one, QTabBar::tab:right:only-one {
-    margin-bottom: 0;
-}
-
-</string>
        </property>
        <property name="tabPosition">
         <enum>QTabWidget::TabPosition::North</enum>

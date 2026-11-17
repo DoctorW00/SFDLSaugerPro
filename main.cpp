@@ -1,4 +1,5 @@
 #include "sfdlsauger.h"
+#include "thememanager.h"
 #include <singleapplication.h>
 #include <QApplication>
 
@@ -15,6 +16,12 @@ int main(int argc, char *argv[])
         app.sendMessage(app.arguments().join('|').toUtf8());
         return 0;
     }
+
+#if !defined(Q_OS_WIN) && !defined(Q_OS_MACOS)
+    app.setWindowIcon(QIcon(":/gfx/icon.png"));
+#endif
+
+    ThemeManager::instance()->init();
 
     SFDLSauger w;
     QObject::connect(&app, &SingleApplication::receivedMessage, &w, &SFDLSauger::loadSFDLConsol);
@@ -64,7 +71,9 @@ int main(int argc, char *argv[])
         w.loadSFDL(app.arguments().at(1));
     }
 
+#if defined(Q_OS_WIN)
     w.setWindowIcon(QIcon("icon.ico"));
+#endif
     w.setWindowTitle("SFDLSauger Pro");
 
     splash.hide();

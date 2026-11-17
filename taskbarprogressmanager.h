@@ -33,6 +33,7 @@ private:
 #endif
 
     void updateDynamicIcon(int percentage);
+    int m_lastPercentage = -1;
 };
 
 #endif // TASKBARPROGRESSMANAGER_H

@@ -97,7 +97,7 @@ private slots:
     void getSFDLData(QStringList data, QStringList files);
     void on_tabWidget_tabCloseRequested(int index);
     void MsgWarning(QString label, QString text);
-    QString bytes2Human(float filesize);
+    QString bytes2Human(double filesize);
     QString seconds_to_DHMS(int duration);
     void quitApp();
     void on_action_ffnen_triggered();
@@ -225,7 +225,6 @@ private:
     QSet<QString> m_pendingRestart;
 
     // crc32 threads
-    // QList<Crc32*> g_CRC32Worker;
     int g_runningCRC32 = 0;
     int g_maxCRC32 = 4;
 

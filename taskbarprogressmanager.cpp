@@ -34,21 +34,27 @@ void TaskbarProgressManager::initWinTaskbar()
 }
 #endif
 
+#ifdef Q_OS_MACOS
+void macSetDockProgress(int percentage);
+void macClearDockProgress();
+#endif
+
 void TaskbarProgressManager::setProgress(int percentage)
 {
-    if (percentage < 0) percentage = 0;
-    if (percentage > 100) percentage = 100;
+    percentage = qBound(0, percentage, 100);
 
-#ifdef Q_OS_WIN
+    if (percentage == m_lastPercentage) return;   // unnötige Updates vermeiden
+    m_lastPercentage = percentage;
+
+#if defined(Q_OS_WIN)
     initWinTaskbar();
-    if(m_winProgress)
-    {
+    if (m_winProgress) {
         m_winProgress->setValue(percentage);
-        if(!m_winProgress->isVisible())
-        {
+        if (!m_winProgress->isVisible())
             m_winProgress->setVisible(true);
-        }
     }
+#elif defined(Q_OS_MACOS)
+    macSetDockProgress(percentage);
 #else
     updateDynamicIcon(percentage);
 #endif
@@ -56,12 +62,15 @@ void TaskbarProgressManager::setProgress(int percentage)
 
 void TaskbarProgressManager::clearProgress()
 {
-#ifdef Q_OS_WIN
-    if(m_winProgress)
-    {
+    m_lastPercentage = -1;
+
+#if defined(Q_OS_WIN)
+    if (m_winProgress) {
         m_winProgress->setVisible(false);
         m_winProgress->setValue(0);
     }
+#elif defined(Q_OS_MACOS)
+    macClearDockProgress();
 #else
     m_parentWindow->setWindowIcon(m_baseIcon);
     qApp->setWindowIcon(m_baseIcon);

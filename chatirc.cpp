@@ -26,7 +26,6 @@ chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
     connect(ui->selectIRCProxy, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &chatIRC::on_selectIRCProxy_currentIndexChanged, Qt::UniqueConnection);
 
-    // leeres Dokument als sicherer Fallback fuer den Chat-Browser (setDocument(nullptr) ist nicht erlaubt)
     auto *emptyDoc = new QTextDocument(this);
     emptyDoc->setObjectName("emptyDoc");
     connect(ui->buttonSetup, &QPushButton::clicked, this, &chatIRC::createSetupDialog, Qt::UniqueConnection);
@@ -69,9 +68,6 @@ chatIRC::chatIRC(QWidget *parent) : QDialog(parent), ui(new Ui::chatIRC)
 
 chatIRC::~chatIRC()
 {
-    // WICHTIG: Models/Buffer/Connection sind Kinder von 'this' und werden erst NACH diesem Destruktor
-    // (und nach delete ui) zerstoert. Ihre Signale (removed, socketError, ...) wuerden sonst Slots auf
-    // einem halb zerstoerten Objekt aufrufen (ui, userModels, documents sind dann schon weg) -> Crash.
     if(bufferModel)
     {
         disconnect(bufferModel, nullptr, this, nullptr);
@@ -88,7 +84,6 @@ chatIRC::~chatIRC()
         }
     }
 
-    // Views von den Models loesen, bevor diese zerstoert werden
     ui->userList->setModel(nullptr);
     ui->bufferView->setModel(nullptr);
 

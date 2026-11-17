@@ -1,5 +1,6 @@
 #include "settings.h"
 #include "notificationclient.h"
+#include "thememanager.h"
 #include "ui_settings.h"
 #include <QNetworkInterface>
 #include <QHostAddress>
@@ -11,6 +12,7 @@
 #include <QDebug>
 
 std::atomic<qint64> Settings::_globalSpeedLimitBytes{0};
+std::atomic<bool> Settings::_globalDecimalUnits{false};
 
 Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
 {
@@ -20,8 +22,6 @@ Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
     ui->chk_sfv->setDisabled(1);
     // ui->chk_unrar->setDisabled(1);
     ui->chk_unrar_del->setDisabled(1);
-
-    ui->toolBox->setStyleSheet("QToolBox::tab { font-weight: bold; background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #E1E1E1, stop: 0.4 #DDDDDD, stop: 0.5 #D8D8D8, stop: 1.0 #D3D3D3); }");
 
     // translations
     m_translator = new QTranslator(qApp);
@@ -101,13 +101,10 @@ Settings::Settings(QWidget *parent) : QDialog(parent), ui(new Ui::Settings)
 
 
     // notification placeholder
-    QString placeholderStyle = "QLineEdit::placeholder { color: rgba(0, 0, 0, 100); font-style: italic; }";
     ui->line_sendfrom_name->setPlaceholderText("Absendername");
     ui->line_sendfrom_email->setPlaceholderText("name@mail.com");
-    ui->line_sendfrom_name->setStyleSheet(placeholderStyle);
     ui->line_sendto_name->setPlaceholderText("Empfängername");
     ui->line_sendto_email->setPlaceholderText("empfaenger@mail.com");
-    ui->line_sendto_email->setStyleSheet(placeholderStyle);
 
     ui->line_smtp_port->setValidator(new QRegularExpressionValidator(QRegularExpression("^(1|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$")));
 
@@ -226,6 +223,10 @@ void Settings::loadSettings()
 {
     QSettings config(QSettings::IniFormat, QSettings::UserScope, "SFDLSaugerPro", "config");
 
+    ui->combo_theme->blockSignals(true);
+    ui->combo_theme->setCurrentIndex(static_cast<int>(ThemeManager::instance()->mode()));
+    ui->combo_theme->blockSignals(false);
+
     config.beginGroup("main");
     _devMode = config.value("devMode", false).toBool();
     _max_downloads = config.value("max_downloads", 3).toInt();
@@ -235,6 +236,23 @@ void Settings::loadSettings()
     ui->chk_sfdl_move_file->setChecked(_sfdl_move_file_to_download);
     _shutdown_pc = config.value("shutdown_pc", false).toBool();
     ui->chk_shutdown_pc->setChecked(_shutdown_pc);
+    _speedreport_create = config.value("speedreport_create", true).toBool();
+    _speedreport_auto_open = config.value("speedreport_auto_open", true).toBool();
+    ui->chk_speedreport_create->blockSignals(true);
+    ui->chk_speedreport_create->setChecked(_speedreport_create);
+    ui->chk_speedreport_create->blockSignals(false);
+    ui->chk_speedreport_auto_open->blockSignals(true);
+    ui->chk_speedreport_auto_open->setChecked(_speedreport_auto_open);
+    ui->chk_speedreport_auto_open->blockSignals(false);
+    _speedreport_list_files = config.value("speedreport_list_files", false).toBool();
+    ui->chk_speedreport_files->blockSignals(true);
+    ui->chk_speedreport_files->setChecked(_speedreport_list_files);
+    ui->chk_speedreport_files->blockSignals(false);
+    _size_units_decimal = config.value("size_units_decimal", false).toBool();
+    _globalDecimalUnits = _size_units_decimal;
+    ui->combo_size_units->blockSignals(true);
+    ui->combo_size_units->setCurrentIndex(_size_units_decimal ? 1 : 0);
+    ui->combo_size_units->blockSignals(false);
     _downloadPath = config.value("downloadPath").toString();
     _ftpRetry = config.value("ftpRetry", true).toBool();
     ui->chk_ftp_retry->setChecked(_ftpRetry);
@@ -489,6 +507,14 @@ void Settings::saveSettings()
     config.setValue("download_useChunks", ui->chk_download_useChunks->checkState());
     config.setValue("sfdl_move_file_to_download", ui->chk_sfdl_move_file->checkState());
     config.setValue("shutdown_pc", ui->chk_shutdown_pc->checkState());
+    _speedreport_create = ui->chk_speedreport_create->isChecked();
+    config.setValue("speedreport_create", _speedreport_create);
+    _speedreport_auto_open = ui->chk_speedreport_auto_open->isChecked();
+    config.setValue("speedreport_auto_open", _speedreport_auto_open);
+    _speedreport_list_files = ui->chk_speedreport_files->isChecked();
+    config.setValue("speedreport_list_files", _speedreport_list_files);
+    _size_units_decimal = (ui->combo_size_units->currentIndex() == 1);
+    config.setValue("size_units_decimal", _size_units_decimal);
     config.setValue("downloadPath", ui->line_openDownloadPath->text());
     _downloadPath = ui->line_openDownloadPath->text();
     config.setValue("flatDownloads", ui->chk_flatDownloads->checkState());
@@ -637,22 +663,25 @@ void Settings::saveSettings()
     config.endArray();
 }
 
-QString Settings::bytes2Human(float filesize)
+QString Settings::bytes2Human(double filesize)
 {
-    float num = filesize;
+    return formatBytes(filesize);
+}
 
-    QStringList list;
-    list << "KiB" << "MiB" << "GiB" << "TiB";
+QString Settings::formatBytes(double size)
+{
+    const bool decimal = _globalDecimalUnits.load();
+    const double base = decimal ? 1000.0 : 1024.0;
+    const QStringList units = decimal ? QStringList{"KB", "MB", "GB", "TB"} : QStringList{"KiB", "MiB", "GiB", "TiB"};
 
-    QStringListIterator i(list);
     QString unit("bytes");
-
-    while(num >= 1024.0 && i.hasNext())
+    int idx = 0;
+    while(size >= base && idx < units.size())
     {
-        unit = i.next();
-        num /= 1024.0;
+        unit = units.at(idx++);
+        size /= base;
     }
-    return QString().setNum(num,'f',2) + " " + unit;
+    return QString::number(size, 'f', 2) + " " + unit;
 }
 
 void Settings::crc32sfvCheckBoxes()
@@ -714,9 +743,7 @@ void Settings::on_button_openDownloadPath_clicked()
 
     if(!downloadPath.isEmpty())
     {
-        // QFileInfo path(downloadPath);
         QStorageInfo storage(downloadPath);
-
         QStringList errorReasons;
 
         if(!downloadPath.endsWith("/"))
@@ -830,7 +857,6 @@ void Settings::on_button_openUnrarPath_clicked()
 
     // select unrar executable
     QString unrarPath = QFileDialog::getOpenFileName(this, tr("Wo befindet sich UnRAR?"), home, unrarExtension);
-
 
     QFileInfo unrar(unrarPath);
     if(unrar.exists() && unrar.isFile())
@@ -982,6 +1008,26 @@ void Settings::on_combo_language_currentIndexChanged(int index)
         QString localeCode = base.section('_', 1);
         _translation = localeCode;
     }
+}
+
+void Settings::on_combo_theme_currentIndexChanged(int index)
+{
+    if(index < 0 || index > static_cast<int>(ThemeManager::Dark))
+    {
+        return;
+    }
+    ThemeManager::instance()->setMode(static_cast<ThemeManager::Mode>(index));
+}
+
+void Settings::on_combo_size_units_currentIndexChanged(int index)
+{
+    _size_units_decimal = (index == 1);
+    _globalDecimalUnits = _size_units_decimal;
+}
+
+void Settings::on_chk_speedreport_files_toggled(bool checked)
+{
+    _speedreport_list_files = checked;
 }
 
 void Settings::changeLanguage(QString localeCode)

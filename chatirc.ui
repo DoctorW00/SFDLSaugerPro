@@ -36,16 +36,6 @@
    </item>
    <item row="0" column="0" colspan="2">
     <widget class="QSplitter" name="splitter_2">
-     <property name="styleSheet">
-      <string notr="true">QSplitter::handle {
-	background: #FFFFFF url(:/gfx/splitter.png) center no-repeat;
-}
-
-QSplitter::handle:horizontal {
-	background: #FFFFFF url(:/gfx/splitter2.png) center no-repeat;
-}
-</string>
-     </property>
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>

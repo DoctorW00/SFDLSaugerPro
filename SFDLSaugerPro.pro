@@ -1,6 +1,6 @@
 QT += core widgets gui network ftp xml multimedia
 
-VERSION = 1.6.2
+VERSION = 1.6.3
 
 win32 {
     QT += winextras
@@ -33,7 +33,8 @@ SOURCES += \
         unrarextractor.cpp \
         chatirc.cpp \
         livelogs.cpp \
-        webserver.cpp
+        webserver.cpp \
+        thememanager.cpp
 
 HEADERS += \
         FileOrganizer.h \
@@ -55,7 +56,8 @@ HEADERS += \
         unrarextractor.h \
         chatirc.h \
         livelogs.h \
-        webserver.h
+        webserver.h \
+        thememanager.h
 
 FORMS += \
         sfdlsauger.ui \
@@ -121,6 +123,8 @@ unix {
 macx {
     ICON = icon.icns
     QMAKE_ENTITLEMENTS = $$PWD/entitlements.plist
+    OBJECTIVE_SOURCES += taskbarprogressmanager_mac.mm
+    LIBS += -framework AppKit
 }
 
 # translations start ->
