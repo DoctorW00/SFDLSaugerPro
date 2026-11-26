@@ -1,7 +1,6 @@
 #ifndef FTPLISTFILES_H
 #define FTPLISTFILES_H
 
-// #include <QTimer>
 #include <QEventLoop>
 #include <qftp.h>
 #include <QNetworkProxy>
@@ -39,7 +38,6 @@ signals:
 
 private:
     QFtp *ftp;
-    QTimer *timer;
     QEventLoop *loop;
     QString baseIP;
     int basePort;
