@@ -1,9 +1,9 @@
 #ifndef FTPLISTFILES_H
 #define FTPLISTFILES_H
 
-#include <QTimer>
+// #include <QTimer>
 #include <QEventLoop>
-#include <QtFtp/QFtp>
+#include <qftp.h>
 #include <QNetworkProxy>
 
 #ifdef QT_DEBUG
@@ -20,18 +20,17 @@ public:
 public slots:
     void ftpList(QString ip, int port, QString user, QString pass, QString path,
                  QString proxyHost, QString proxyPort, QString proxyUser,
-                 QString proxyPass, QStringList data, int timeout);
+                 QString proxyPass, QStringList data, int timeout, bool ftp_debug, int timeout_transfer);
 
 private slots:
     void setFTP();
-    void ftpTimeout();
     void ftpRawCommandReply(int code, const QString & cmd);
     void ftpCommandStarted(int id);
     void ftpCommandFinished(int commandId, bool error);
     void ftpstateChanged(int state);
     void doListInfo(const QUrlInfo& info);
     void isDone(bool);
-    void getFTPIndex(QString ip, int port, QString user, QString pass, QString path, int timeout);
+    void getFTPIndex(QString ip, int port, QString user, QString pass, QString path, int timeout, int timeout_transfer);
 
 signals:
     void sendWarning(QString label, QString text);
@@ -54,6 +53,8 @@ private:
     QString lastCdPath;
     bool m_hasErrorOccurred;
     int ftp_timeout = 30000;
+    int ftp_timeout_trasfer = 60000;
+    bool ftpDebug = false;
 
 };
 

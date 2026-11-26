@@ -3,7 +3,7 @@
 
 #include <QObject>
 #include <QMutex>
-#include <QtFtp/QFtp>
+#include <qftp.h>
 #include <QFile>
 #include <QDir>
 #include <QTcpSocket>
@@ -100,6 +100,8 @@ public:
     int _tableRow = -1;
     QString _id;
     int ftpTimeout = 30000;
+    int ftpTimeoutTransfer = 60000;
+    bool ftpDebug = false;
 
     // chunk downloads
     int m_chunkIndex = 0;
@@ -136,7 +138,6 @@ signals:
 private:
     QFtp *ftp = nullptr;
     QStringList data;
-    // QFile *file;
     ThrottledFile *file = nullptr;
     QEventLoop *ftpLoop = nullptr;
     QMutex mutex;
@@ -151,7 +152,6 @@ private:
     int tableRow;
     QNetworkProxy proxy;
     bool downloadFinished = false;
-    bool downloadTimeouted = false;
 
 };
 

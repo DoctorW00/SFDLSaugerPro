@@ -435,12 +435,14 @@ void SFDLSauger::chkSFDLData(QStringList data, QStringList files)
         const QString pUser    = settingsWindow->_ftpProxyUser;
         const QString pPass    = settingsWindow->_ftpProxyPass;
         const int     ftpTo    = settingsWindow->_ftpTimeout;
+        const bool    ftpDebug = settingsWindow->_ftpDebug;
+        const int     ftpToTra = settingsWindow->_ftpTimeoutTransfer;
 
         listFTP->moveToThread(thread);
 
         connect(thread, &QThread::started, listFTP, [=]() {
             listFTP->ftpList(ftpHost, ftpPort, ftpUser, ftpPass, ftpPath,
-                             pHost, pPort, pUser, pPass, data, ftpTo);
+                             pHost, pPort, pUser, pPass, data, ftpTo, ftpDebug, ftpToTra);
             thread->quit();
         });
 
@@ -767,13 +769,8 @@ void SFDLSauger::getSFDLData(QStringList data, QStringList files)
         file_tbl->setItem(i, 1, FULLFILEPATH);
 
         // clean file name + sub file structure
-        if(tabName != data.at(1).split("|").at(1))
-        {
-
-            fileError = true;
-            addLogText("<font color=\"#e53935\">" + tabName + tr(": Datei / Pfaderkenntung nicht möglich. Pfad unterscheidet sich vom Titel. (1)</font>"));
-            break;
-        }
+        QString tabName = data.at(1).split("|").at(1).normalized(QString::NormalizationForm_C);
+        tabName = checkSameDownloads(tabName);
 
         QString dlFileNameWithSub = files.at(i).split("|").at(0);
         dlFileNameWithSub = removeDuplicateSlashes(returnSubPath(dlFileNameWithSub, tabName));
@@ -1289,22 +1286,37 @@ QStringList SFDLSauger::dirFromFilePath(QString filePath)
 
 QString SFDLSauger::returnSubPath(QString fullPath, QString splitter)
 {
-    QStringList parts = fullPath.split('/', Qt::SkipEmptyParts);
+    QString cleanSplitter = splitter;
+    cleanSplitter.remove(QRegularExpression("\\([0-9]+\\)$"));
+    cleanSplitter = cleanSplitter.normalized(QString::NormalizationForm_C);
 
-    int index = parts.indexOf(splitter);
+    QString normalizedPath = fullPath.normalized(QString::NormalizationForm_C);
+    normalizedPath.replace('\\', '/');
 
-    if(index == -1)
+    QStringList parts = normalizedPath.split('/', Qt::SkipEmptyParts);
+
+    int index = -1;
+    for(int i = 0; i < parts.size(); ++i)
+    {
+        if(parts.at(i) == cleanSplitter)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    if(index != -1)
+    {
+        QStringList subparts = parts.mid(index + 1);
+        return subparts.isEmpty() ? QString() : '/' + subparts.join('/');
+    }
+
+    if(parts.isEmpty())
     {
         return QString();
     }
 
-    QStringList subparts = parts.mid(index + 1);
-    if(subparts.isEmpty())
-    {
-        return QString();
-    }
-
-    return '/' + subparts.join('/');
+    return '/' + parts.join('/');
 }
 
 QString SFDLSauger::removeDuplicateSlashes(QString path)
@@ -1358,7 +1370,10 @@ void SFDLSauger::startDownload(QString tabID)
             QString fullDownloadPath = settingsWindow->_downloadPath + id;
             if(!fullDownloadPath.endsWith("/")) fullDownloadPath += "/";
 
-            QString ftpDir = dirFromFilePath(widget3->item(i, 1)->text()).at(0);
+            QString rawFullFtpPath = widget3->item(i, 1)->text().normalized(QString::NormalizationForm_C);
+            QString ftpDir = dirFromFilePath(rawFullFtpPath).at(0);
+            ftpDir.replace('\\', '/');
+
             QString fileName = dirFromFilePath(widget3->item(i, 1)->text()).at(1);
             QString subPath = returnSubPath(ftpDir, id);
 
@@ -1370,8 +1385,13 @@ void SFDLSauger::startDownload(QString tabID)
             {
                 fullDownloadPath = QDir::toNativeSeparators(QDir::cleanPath(fullDownloadPath + "/" + subPath));
             }
+
             QDir dir;
-            if(!dir.mkpath(fullDownloadPath)) continue;
+            if(!dir.mkpath(fullDownloadPath))
+            {
+                addLogText("<font color=\"#e53935\">Konnte Verzeichnis nicht erstellen: " + fullDownloadPath + "</font>");
+                continue;
+            }
 
             qint64 fileSize = widget3->item(i, 3)->text().toLongLong();
 
@@ -1428,7 +1448,9 @@ void SFDLSauger::startDownload(QString tabID)
                              << fullDownloadPath << fileName << QString::number(i)
                              << settingsWindow->_ftpProxyHost << settingsWindow->_ftpProxyPort
                              << settingsWindow->_ftpProxyUser << settingsWindow->_ftpProxyPass
-                             << QString::number(settingsWindow->_ftpTimeout);
+                             << QString::number(settingsWindow->_ftpTimeout)
+                             << (settingsWindow->_ftpDebug ? QStringLiteral("1") : QStringLiteral("0"))
+                             << QString::number(settingsWindow->_ftpTimeoutTransfer);
 
                 auto thread = new QThread;
                 auto worker = new FTPDownload(downloadList);

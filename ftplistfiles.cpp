@@ -6,9 +6,6 @@ void FTPListFiles::setFTP()
 {
     loop = new QEventLoop();
 
-    timer = new QTimer();
-    connect(timer, SIGNAL(timeout()), this, SLOT(ftpTimeout()));
-
     ftp = new QFtp();
     ftp->setTransferMode(QFtp::Passive);
 
@@ -16,32 +13,8 @@ void FTPListFiles::setFTP()
     connect(ftp, SIGNAL(done(bool)), this, SLOT(isDone(bool)));
     connect(ftp, SIGNAL(commandStarted(int)), this, SLOT(ftpCommandStarted(int)));
     connect(ftp, SIGNAL(commandFinished(int,bool)), this, SLOT(ftpCommandFinished(int,bool)));
-    connect(ftp, SIGNAL(rawCommandReply(int,QString)), this, SLOT(ftpRawCommandReply(int,QString)));
+    connect(ftp, &QFtp::ftpResponse, this, &FTPListFiles::ftpRawCommandReply);
     connect(ftp, SIGNAL(stateChanged(int)), this, SLOT(ftpstateChanged(int)));
-}
-
-void FTPListFiles::ftpTimeout()
-{
-    m_hasErrorOccurred = true;
-
-    if(timer && timer->isActive())
-    {
-        timer->stop();
-    }
-
-    if(ftp)
-    {
-        ftp->clearPendingCommands();
-        ftp->abort();
-    }
-
-    if(loop && loop->isRunning())
-    {
-        loop->exit(0);
-    }
-
-    emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Timeout! Keine Verbindung zum Server.</font>"));
-    emit sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
 }
 
 void FTPListFiles::ftpstateChanged(int state)
@@ -51,11 +24,12 @@ void FTPListFiles::ftpstateChanged(int state)
 #endif
 }
 
-void FTPListFiles::ftpRawCommandReply(int code, const QString & cmd)
+void FTPListFiles::ftpRawCommandReply(int code, const QString &cmd)
 {
-#ifdef QT_DEBUG
-    qDebug() << "ftpRawCommandReply: " << code << cmd;
-#endif
+    if(ftpDebug)
+    {
+        emit sendLogText(QStringLiteral("%1: [%2] %3").arg(baseSFDL).arg(code).arg(cmd.trimmed()));
+    }
 }
 
 void FTPListFiles::ftpCommandStarted(int id)
@@ -156,8 +130,10 @@ void FTPListFiles::ftpCommandFinished(int commandId, bool error)
 
 void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QString path,
                            QString proxyHost, QString proxyPort, QString proxyUser,
-                           QString proxyPass, QStringList data, int timeout)
-{   
+                           QString proxyPass, QStringList data, int timeout, bool ftp_Debug, int timeout_transfer)
+{
+    ftpDebug = ftp_Debug;
+
     // set proxy
     if(!proxyHost.isEmpty() && !proxyPort.isEmpty())
     {
@@ -214,7 +190,16 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
         ftp_timeout = 0;
     }
 
-    getFTPIndex(baseIP, basePort, baseUser, basePass, basePath, ftp_timeout);
+    if(timeout_transfer > 0)
+    {
+        ftp_timeout_trasfer = timeout_transfer * 1000;
+    }
+    else
+    {
+        ftp_timeout_trasfer = 0;
+    }
+
+    getFTPIndex(baseIP, basePort, baseUser, basePass, basePath, ftp_timeout, ftp_timeout_trasfer);
 
     if(m_hasErrorOccurred)
     {
@@ -225,23 +210,21 @@ void FTPListFiles::ftpList(QString ip, int port, QString user, QString pass, QSt
     emit sendFTPData(data, fileList);
 }
 
-void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path, int timeout)
+void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass, QString path, int timeout, int timeout_transfer)
 {
     basePath = path;
     emit sendLogText(baseSFDL + tr(": Lade Inhalt von Pfad: ") + basePath);
 
     setFTP();
 
-    if(timeout > 0)
-    {
-        timer->setSingleShot(true);
-        timer->start(timeout);
-    }
+    ftp->setConnectTimeout(timeout);
+    ftp->setTransferTimeout(timeout_transfer);
 
     loop->connect(ftp, SIGNAL(done(bool)), loop, SLOT(quit()));
 
     ftp->connectToHost(ip, port);
     ftp->login(user, pass);
+    ftp->rawCommand(QStringLiteral("OPTS UTF8 ON"));
     if(!path.isEmpty())
     {
         lastCdPath = path;
@@ -250,13 +233,6 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
     ftp->list();
 
     loop->exec();
-
-    if(timer)
-    {
-        if(timeout > 0) timer->stop();
-        timer->deleteLater();
-        timer = nullptr;
-    }
 
     if(ftp)
     {
@@ -275,7 +251,7 @@ void FTPListFiles::getFTPIndex(QString ip, int port, QString user, QString pass,
     while(!pathList.isEmpty() && !m_hasErrorOccurred)
     {
         QString getPath = pathList.takeFirst();
-        getFTPIndex(baseIP, basePort, baseUser, basePass, getPath, timeout);
+        getFTPIndex(baseIP, basePort, baseUser, basePass, getPath, timeout, timeout_transfer);
     }
 }
 
@@ -320,25 +296,30 @@ void FTPListFiles::doListInfo(const QUrlInfo& info)
 
 void FTPListFiles::isDone(bool)
 {
-    if(timer && timer->isActive())
-    {
-        timer->stop();
-    }
-
     if(ftp && ftp->error())
     {
-        #ifdef QT_DEBUG
-            qDebug() << "FTP Error: " << ftp->error();
-            qDebug() << "FTP ErrorString: " << ftp->errorString();
-        #endif
+        m_hasErrorOccurred = true;
 
-        emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + ftp->errorString() + "</font>");
-        emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + ftp->errorString());
+#ifdef QT_DEBUG
+        qDebug() << "FTP Error: " << ftp->error();
+        qDebug() << "FTP ErrorString: " << ftp->errorString();
+#endif
+
+        if(ftp->error() == QFtp::Timeout)
+        {
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Timeout! Keine Verbindung zum Server.</font>"));
+            emit sendWarning(tr("FTP Timeout"), "[" + baseSFDL + "] FTP Timeout! Keine Verbindung zum Server.");
+        }
+        else
+        {
+            emit sendLogText(tr("<font color=\"red\">[") + baseSFDL + tr("] FTP Fehler: ") + ftp->errorString() + "</font>");
+            emit sendWarning(tr("FTP Fehler"), "[" + baseSFDL + "] " + ftp->errorString());
+        }
     }
     else
     {
-        #ifdef QT_DEBUG
-            qDebug() << "Alle FTP Operationen ohne Fehler beendet!";
-        #endif
+#ifdef QT_DEBUG
+        qDebug() << "Alle FTP Operationen ohne Fehler beendet!";
+#endif
     }
 }

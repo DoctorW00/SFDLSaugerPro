@@ -8,7 +8,6 @@ FTPDownload::FTPDownload(QStringList data) : data(data)
     _abort = false;
 
     downloadFinished = false;
-    downloadTimeouted = false;
 
     id = this->data.at(0);
     host = this->data.at(1);
@@ -35,6 +34,8 @@ FTPDownload::FTPDownload(QStringList data) : data(data)
     _id = this->data.at(0);
 
     ftpTimeout = this->data.at(13).toInt() * 1000;
+    ftpDebug = QVariant(this->data.at(14)).toBool();
+    ftpTimeoutTransfer = this->data.at(15).toInt() * 1000;
 
     QString proxyHost = this->data.at(9);
     QString proxyPort = this->data.at(10);
@@ -122,16 +123,25 @@ void FTPDownload::process()
     ftpLoop = new QEventLoop();
     ftp = new QFtp();
 
+    connect(ftp, &QFtp::ftpResponse, this, [this](int code, const QString &text) {
+        if(ftpDebug)
+        {
+            emit sendLogText(tr("[%1] Server-Antwort %2: %3").arg(dlfile).arg(code).arg(text.trimmed()));
+        }
+    });
+
     connect(ftp, SIGNAL(done(bool)), this, SLOT(isDone(bool)));
     connect(ftp, SIGNAL(dataTransferProgress(qint64,qint64)), this, SLOT(updateProgress(qint64, qint64)));
-
     connect(ftp, &QFtp::done, ftpLoop, &QEventLoop::quit);
 
-    // file = new QFile();
+    ftp->setConnectTimeout(ftpTimeout);
+    ftp->setTransferTimeout(ftpTimeoutTransfer);
+
     file = new ThrottledFile();
     file->setFileName(QDir::toNativeSeparators(QDir::cleanPath(dlpath + "/" + dlfile)));
 
     bool openSuccess = false;
+    qint64 restartOffset = 0;   // REST offset for ftp->get()
 
     if(m_isChunked)
     {
@@ -140,7 +150,7 @@ void FTPDownload::process()
             emit sendLogText(tr("[%1] Lade Chunk %2 bis %3").arg(QFileInfo(*file).fileName(), QString::number(m_chunkStart), QString::number(m_chunkEnd)));
 
             openSuccess = true;
-            ftp->m_fileSize = m_chunkStart;
+            restartOffset = m_chunkStart;
             if(!file->seek(m_chunkStart))
             {
                 emit statusUpdateFile(id, _tableRow, tr("Fehler: Seek fehlgeschlagen"), 3);
@@ -169,7 +179,7 @@ void FTPDownload::process()
             {
                 openSuccess = true;
                 m_startOffset = file->size();
-                ftp->m_fileSize = m_startOffset;
+                restartOffset = m_startOffset;
             }
         }
         else
@@ -178,7 +188,7 @@ void FTPDownload::process()
             {
                 openSuccess = true;
                 m_startOffset = 0;
-                ftp->m_fileSize = 0;
+                restartOffset = 0;
             }
         }
     }
@@ -187,49 +197,12 @@ void FTPDownload::process()
     {
         ftp->connectToHost(host, port.toInt());
         ftp->login(user, pass);
+        ftp->rawCommand(QStringLiteral("OPTS UTF8 ON"));
         ftp->cd(dir);
         ftp->setTransferMode(QFtp::Passive);
-        ftp->get(dlfile, file);
+        ftp->get(dlfile, file, QFtp::Binary, restartOffset);
 
-        if(ftpTimeout > 0)
-        {
-            QTimer timeoutTimer;
-            timeoutTimer.setSingleShot(true);
-
-            connect(&timeoutTimer, &QTimer::timeout, ftpLoop, [this]() {
-                downloadTimeouted = true;
-                // ftpLoop->quit();
-
-                if(ftp)
-                {
-                    ftp->blockSignals(true);
-                    ftp->clearPendingCommands();
-                    ftp->abort();
-                    ftp->close();
-                }
-
-                if(file && file->isOpen())
-                {
-                    file->close();
-                }
-
-                ftpLoop->quit();
-            });
-
-            connect(ftp, &QFtp::dataTransferProgress, &timeoutTimer, [this, &timeoutTimer](qint64 bytes, qint64 total) {
-                Q_UNUSED(bytes);
-                Q_UNUSED(total);
-                timeoutTimer.start(ftpTimeout);
-            });
-
-            timeoutTimer.start(ftpTimeout);
-            ftpLoop->exec();
-            timeoutTimer.stop();
-        }
-        else
-        {
-            ftpLoop->exec();
-        }
+        ftpLoop->exec();
     }
 
     if(!openSuccess)
@@ -312,20 +285,7 @@ void FTPDownload::isDone(bool)
     const QString fileNameForLog = file ? QFileInfo(*file).fileName() : dlfile;
     const bool chunkOk = m_isChunked && (m_chunkReachedEnd || !(ftp && ftp->error()));
 
-    if(downloadTimeouted)
-    {
-        emit statusUpdateFile(id, _tableRow, tr("FTP Timeout!"), 2);
-
-        if(!m_isChunked)
-        {
-            emit sendLogText(tr("[%1] FTP timeout!").arg(fileNameForLog));
-        }
-        else
-        {
-            emit sendLogText(tr("[%1] %2 bis %3 FTP timeout!").arg(fileNameForLog, QString::number(m_chunkStart), QString::number(m_chunkEnd)));
-        }
-    }
-    else if(userAborted)
+    if(userAborted)
     {
         emit statusUpdateFile(id, _tableRow, tr("User Abbruch!"), 9);
     }
@@ -336,27 +296,32 @@ void FTPDownload::isDone(bool)
     }
     else if(ftp && ftp->error())
     {
-        /*
-        QFtp::NoError           0	No error occurred.
-        QFtp::HostNotFound      2	The host name lookup failed.
-        QFtp::ConnectionRefused	3	The server refused the connection.
-        QFtp::NotConnected      4	Tried to send a command, but there is no connection to a server.
-        QFtp::UnknownError      1	An error other than those specified above occurred.
-        */
+        if(ftp->error() == QFtp::Timeout)
+        {
+            emit statusUpdateFile(id, _tableRow, tr("FTP Timeout!"), 2);
 
-        if(ftp->error() == 1)
+            if(!m_isChunked)
+            {
+                emit sendLogText(tr("[%1] FTP timeout!").arg(fileNameForLog));
+            }
+            else
+            {
+                emit sendLogText(tr("[%1] %2 bis %3 FTP timeout!").arg(fileNameForLog, QString::number(m_chunkStart), QString::number(m_chunkEnd)));
+            }
+        }
+        else if(ftp->error() == QFtp::UnknownError)
         {
             emit statusUpdateFile(id, _tableRow, tr("Unbekannter Fehler: ") + ftp->errorString(), 3);
         }
-        else if(ftp->error() == 2)
+        else if(ftp->error() == QFtp::HostNotFound)
         {
             emit statusUpdateFile(id, _tableRow, tr("Host nicht gefunden: ") + ftp->errorString(), 2);
         }
-        else if(ftp->error() == 3)
+        else if(ftp->error() == QFtp::ConnectionRefused)
         {
             emit statusUpdateFile(id, _tableRow, tr("Verbindung verweigert: ") + ftp->errorString(), 2);
         }
-        else if(ftp->error() == 4)
+        else if(ftp->error() == QFtp::NotConnected)
         {
             emit statusUpdateFile(id, _tableRow, tr("Nicht verbunden: ") + ftp->errorString(), 2);
         }
@@ -374,6 +339,7 @@ void FTPDownload::isDone(bool)
     _working = false;
     mutex.unlock();
 }
+
 
 void FTPDownload::updateProgress(qint64 read, qint64 total)
 {
@@ -413,7 +379,7 @@ void FTPDownload::updateProgress(qint64 read, qint64 total)
     else
     {
         const qint64 absRead = m_startOffset + read;
-        const bool complete = (total > 0 && read >= total) || (m_totalSize > 0 && absRead >= m_totalSize);
+        const bool complete = (total > 0 && absRead >= total) || (m_totalSize > 0 && absRead >= m_totalSize);
 
         if(complete && !downloadFinished)
         {
@@ -423,14 +389,15 @@ void FTPDownload::updateProgress(qint64 read, qint64 total)
 
             if(!finalAbortCheck)
             {
-                emit doProgress(id, _tableRow, qMin(absRead, m_totalSize > 0 ? m_totalSize : absRead), m_totalSize > 0 ? m_totalSize : m_startOffset + total, false, false);
+                emit doProgress(id, _tableRow, qMin(absRead, m_totalSize > 0 ? m_totalSize : absRead), m_totalSize > 0 ? m_totalSize : total, false, false);
                 isDone(true);
                 return;
             }
         }
 
-        emit doProgress(id, _tableRow, absRead, m_totalSize > 0 ? m_totalSize : m_startOffset + total, false, false);
+        emit doProgress(id, _tableRow, absRead, m_totalSize > 0 ? m_totalSize : total, false, false);
     }
+
 }
 
 

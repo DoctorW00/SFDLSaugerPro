@@ -1,6 +1,6 @@
-QT += core widgets gui network ftp xml multimedia
+QT += core widgets gui network xml multimedia
 
-VERSION = 1.6.3
+VERSION = 1.6.4
 
 win32 {
     QT += winextras
@@ -20,6 +20,7 @@ SOURCES += \
         filewatcher.cpp \
         main.cpp \
         notificationclient.cpp \
+        qftp.cpp \
         sfdlsauger.cpp \
         sfdl.cpp \
         ftplistfiles.cpp \
@@ -42,6 +43,7 @@ HEADERS += \
         filewatcher.h \
         httplib.h \
         notificationclient.h \
+        qftp.h \
         sfdlsauger.h \
         sfdl.h \
         ftplistfiles.h \
