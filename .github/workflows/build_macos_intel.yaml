@@ -49,13 +49,13 @@ jobs:
           sudo xcode-select --switch /Applications/Xcode.app || true
           xcode-select -p
 
-      - name: Build ftplib
-        run: |
-          git clone https://github.com/DoctorW00/qtftp.git
-          cd qtftp
-          /usr/local/opt/qt@5/bin/qmake CONFIG+=release || /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
+      #- name: Build ftplib
+      #  run: |
+      #    git clone https://github.com/DoctorW00/qtftp.git
+      #    cd qtftp
+      #    /usr/local/opt/qt@5/bin/qmake CONFIG+=release || /opt/homebrew/opt/qt@5/bin/qmake CONFIG+=release
+      #    make -j$(sysctl -n hw.ncpu)
+      #    sudo make install
 
       - name: Build unrar library
         run: |
