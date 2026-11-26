@@ -32,16 +32,16 @@ jobs:
         run: |
           choco install openssl -y --no-progress
 
-      - name: Build and Install qtftp Library
-        shell: cmd
-        run: |
-          git clone https://github.com/DoctorW00/qtftp.git
-          cd qtftp
-          perl "${{ steps.qt.outputs.qt_dir }}\bin\syncqt.pl" -version 5.15.2
-          cd src\qftp
-          qmake
-          nmake
-          nmake install
+      #- name: Build and Install qtftp Library
+      #  shell: cmd
+      #  run: |
+      #    git clone https://github.com/DoctorW00/qtftp.git
+      #    cd qtftp
+      #    perl "${{ steps.qt.outputs.qt_dir }}\bin\syncqt.pl" -version 5.15.2
+      #    cd src\qftp
+      #    qmake
+      #    nmake
+      #    nmake install
 
       - name: Deploy Prebuilt unrar Library
         shell: cmd
