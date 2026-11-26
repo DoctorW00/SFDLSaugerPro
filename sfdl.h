@@ -1,14 +1,10 @@
 #ifndef SFDL_H
 #define SFDL_H
 
-// #include "data.h"
-
 #include <QtXml/QtXml>
 #include <QByteArray>
 #include <QObject>
 // #include <QHostAddress>
-
-#include <QtFtp/QFtp>
 
 #ifdef QT_DEBUG
     #include <QDebug>
@@ -35,7 +31,6 @@ private slots:
     QString sanitizeString(const QString& input);
 
 private:
-    QFtp *ftp;
     QTimer *timer;
     QEventLoop *loop;
 
