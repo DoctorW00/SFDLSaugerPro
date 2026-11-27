@@ -1,6 +1,6 @@
-QT += core widgets gui network xml multimedia
+QT += core widgets gui network xml multimedia concurrent
 
-VERSION = 1.6.4
+VERSION = 1.6.5
 
 win32 {
     QT += winextras

@@ -1499,10 +1499,13 @@ void SFDLSauger::startDownload(QString tabID)
     }
 }
 
-void SFDLSauger::stopDownload()
+void SFDLSauger::stopDownload(QString id)
 {
-    int tabIndex = ui->tabWidget->currentIndex();
-    QString id = ui->tabWidget->tabToolTip(tabIndex);
+    if(id.isEmpty()) {
+        int tabIndex = ui->tabWidget->currentIndex();
+        if(tabIndex < 0) return;
+        id = ui->tabWidget->tabToolTip(tabIndex);
+    }
 
     m_pendingRestart.remove(id);
     m_stoppedTabs.insert(id);
@@ -1586,34 +1589,40 @@ void SFDLSauger::stopDownload()
     }
 
     QTableWidget *wStatus = widget1->findChild<QTableWidget *>("status");
+    if(wStatus && wStatus->item(0, 12) && wStatus->item(0, 13) && wStatus->item(0, 16))
+    {
+        qlonglong t_startTime = wStatus->item(0, 12)->text().toLongLong();
+        qlonglong t_lastTime = wStatus->item(0, 13)->text().toLongLong();
 
-    qlonglong t_startTime = wStatus->item(0, 12)->text().toLongLong();
-    qlonglong t_lastTime = wStatus->item(0, 13)->text().toLongLong();
+        qlonglong t_updateTime = t_lastTime - t_startTime;
+        if(t_updateTime < 0) t_updateTime = 0;
+        wStatus->item(0, 16)->setText(QString::number(t_updateTime));
 
-    qlonglong t_updateTime = t_lastTime - t_startTime;
-    if(t_updateTime < 0) t_updateTime = 0;
-    wStatus->item(0, 16)->setText(QString::number(t_updateTime));
+        qint64 totalLoaded = 0;
+        if(widget5)
+        {
+            for(int i = 0; i < widget5->rowCount(); i++)
+            {
+                if(widget5->item(i, 0) && widget5->item(i, 12) && widget5->item(i, 0)->checkState() == Qt::Checked)
+                    totalLoaded += widget5->item(i, 12)->text().toLongLong();
+            }
+        }
+        if(wStatus->item(0, 8) && wStatus->item(0, 9)) {
+            wStatus->item(0, 8)->setText(QString::number(totalLoaded));
+            wStatus->item(0, 9)->setText(bytes2Human(totalLoaded));
+        }
+
+        QProgressBar *mBar = widget1->findChild<QProgressBar *>("mProgBar");
+        qlonglong totalSize = wStatus->item(0, 6) ? wStatus->item(0, 6)->text().toLongLong() : 0;
+        if(mBar && totalSize > 0)
+            mBar->setValue(static_cast<int>(qBound<qint64>(0, (totalLoaded * 100) / totalSize, 100)));
+    }
 
     QToolBar *widget2 = widget1->findChild<QToolBar *>("toolbar");
-    QToolButton *widget3 = widget2->findChild<QToolButton *>("toolStart");
-    widget3->setEnabled(1);
-
-    qint64 totalLoaded = 0;
-    if(widget5)
-    {
-        for(int i = 0; i < widget5->rowCount(); i++)
-        {
-            if(widget5->item(i, 0) && widget5->item(i, 12) && widget5->item(i, 0)->checkState() == Qt::Checked)
-                totalLoaded += widget5->item(i, 12)->text().toLongLong();
-        }
+    if(widget2) {
+        QToolButton *widget3 = widget2->findChild<QToolButton *>("toolStart");
+        if(widget3) widget3->setEnabled(1);
     }
-    wStatus->item(0, 8)->setText(QString::number(totalLoaded));
-    wStatus->item(0, 9)->setText(bytes2Human(totalLoaded));
-
-    QProgressBar *mBar = widget1->findChild<QProgressBar *>("mProgBar");
-    qlonglong totalSize = wStatus->item(0, 6)->text().toLongLong();
-    if(mBar && totalSize > 0)
-        mBar->setValue(static_cast<int>(qBound<qint64>(0, (totalLoaded * 100) / totalSize, 100)));
 
     changeCHKBOX(id, false);
 }
@@ -1655,6 +1664,7 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
     QTableWidget *widget2 = widget1->findChild<QTableWidget *>("files");
     QTableWidget *widget3 = widget1->findChild<QTableWidget *>("status");
     if(!widget2 || !widget3 || nRow < 0 || nRow >= widget2->rowCount()) return;
+
     if(!widget2->item(nRow, 3) || !widget2->item(nRow, 12)) return;
 
     if(!overwriteTime && g_tabDownloads.value(tabID) <= 0) return;
@@ -1704,6 +1714,8 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
     widget2->item(nRow, 11)->setText(seconds_to_DHMS(zeit_s));
     widget2->item(nRow, 12)->setText(QString::number(read));
 
+    if(widget3->rowCount() == 0 || !widget3->item(0, 6)) return;
+
     qlonglong t_totalSize = widget3->item(0, 6)->text().toLongLong();
     qlonglong t_sizeLoaded = 0;
     for(int r = 0; r < widget2->rowCount(); ++r)
@@ -1716,6 +1728,8 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
     if(t_totalSize > 0 && t_sizeLoaded > t_totalSize) t_sizeLoaded = t_totalSize;
 
     const qlonglong baseline = widget3->item(0, 17) ? widget3->item(0, 17)->text().toLongLong() : 0;
+
+    if(!widget3->item(0, 12) || !widget3->item(0, 13) || !widget3->item(0, 16)) return;
 
     qlonglong t_startTime_ms = widget3->item(0, 12)->text().toLongLong();
     qlonglong t_stopTime_ms = widget3->item(0, 16)->text().toLongLong();
@@ -1750,10 +1764,12 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
 
     if(overwriteTime) { t_mbSec = 0; t_zeit_s = 0; }
 
-    widget3->item(0, 8)->setText(QString::number(t_sizeLoaded));
-    widget3->item(0, 9)->setText(bytes2Human(t_sizeLoaded));
-    widget3->item(0, 14)->setText(bytes2Human(t_mbSec) + "/s");
-    widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit_s));
+    if(widget3->item(0, 8) && widget3->item(0, 9) && widget3->item(0, 14) && widget3->item(0, 15)) {
+        widget3->item(0, 8)->setText(QString::number(t_sizeLoaded));
+        widget3->item(0, 9)->setText(bytes2Human(t_sizeLoaded));
+        widget3->item(0, 14)->setText(bytes2Human(t_mbSec) + "/s");
+        widget3->item(0, 15)->setText(seconds_to_DHMS(t_zeit_s));
+    }
 
     if(t_totalSize > 0)
     {
@@ -1762,9 +1778,8 @@ void SFDLSauger::updateDownloadProgress(QString tabID, int nRow, qint64 read, qi
         QProgressBar *mBar = widget1->findChild<QProgressBar *>("mProgBar");
         if(mBar) mBar->setValue(totalProgress);
 
-        // update task-bar icon
         int targetTabIndex = ui->tabWidget->indexOf(widget1);
-        if(targetTabIndex == ui->tabWidget->currentIndex())
+        if(targetTabIndex != -1 && targetTabIndex == ui->tabWidget->currentIndex())
         {
             if(totalProgress > 0 && totalProgress < 100)
                 m_taskbarProgress->setProgress(totalProgress);
@@ -2528,12 +2543,15 @@ void SFDLSauger::unrarDeleteFiles(QString id)
         return;
     }
 
-    statusLabel->setText(tr("Entferne RAR Dateien ..."));
+    if (statusLabel) {
+        statusLabel->setText(tr("Bereite Entfernen der RAR Dateien vor..."));
+    }
 
-    int fileRemoveCounter = 0;
     QString basePath = QDir::toNativeSeparators(QDir::cleanPath(settingsWindow->_downloadPath + "/" + id + "/"));
-
     QRegularExpression rarMatch("(part[0-9]+.rar|.[a-z][0-9]+|.rar)$", QRegularExpression::CaseInsensitiveOption);
+
+    QStringList filesToDelete;
+    QStringList fileNamesLog;
 
     for(int i = 0; i < widget2->rowCount(); i++)
     {
@@ -2544,41 +2562,72 @@ void SFDLSauger::unrarDeleteFiles(QString id)
             QString fileName = tFile.last();
 
             QRegularExpressionMatch match = rarMatch.match(fileName);
-
             if(match.hasMatch())
             {
                 QString fullFilePath = QDir::toNativeSeparators(QDir::cleanPath(basePath + "/" + rawPath));
-
-                statusLabel->setText(tr("Entferne: ") + fileName);
-                addLogText(tr("Entferne Datei: ") + rawPath);
-
-                if(QFile::exists(fullFilePath))
-                {
-                    if(QFile::remove(fullFilePath))
-                    {
-                        fileRemoveCounter++;
-                    }
-                    else
-                    {
-                        addLogText(tr("<font color=\"#e53935\">Fehler beim Löschen von: %1</font>").arg(rawPath));
-                    }
-                }
+                filesToDelete.append(fullFilePath);
+                fileNamesLog.append(rawPath);
             }
         }
     }
 
-    if(fileRemoveCounter > 0)
+    if(filesToDelete.isEmpty())
     {
-        statusLabel->setText(QString::number(fileRemoveCounter) + tr(" RAR Dateien entfernt!"));
-        addLogText(QString::number(fileRemoveCounter) + tr(" RAR Dateien entfernt!"));
-    }
-    else
-    {
-        statusLabel->setText(tr("Keine RAR Dateien zum Löschen gefunden."));
+        if (statusLabel) statusLabel->setText(tr("Keine RAR Dateien zum Löschen gefunden."));
+        runNextStep(id);
+        return;
     }
 
-    runNextStep(id);
+    auto watcher = new QFutureWatcher<std::pair<int, QStringList>> (this);
+
+    QFuture<std::pair<int, QStringList>> future = QtConcurrent::run([filesToDelete, fileNamesLog]() {
+        int removeCounter = 0;
+        QStringList failedLogs;
+
+        for(int i = 0; i < filesToDelete.size(); ++i)
+        {
+            QString fullPath = filesToDelete.at(i);
+            if(QFile::exists(fullPath))
+            {
+                if(QFile::remove(fullPath))
+                {
+                    removeCounter++;
+                }
+                else
+                {
+                    failedLogs.append(fileNamesLog.at(i));
+                }
+            }
+        }
+        return std::make_pair(removeCounter, failedLogs);
+    });
+
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, id, statusLabel]() {
+        std::pair<int, QStringList> result = watcher->result();
+        int fileRemoveCounter = result.first;
+        QStringList failedFiles = result.second;
+
+        for(const QString& failedFile : failedFiles) {
+            addLogText(tr("<font color=\"#e53935\">Fehler beim Löschen von: %1</font>").arg(failedFile));
+        }
+
+        if(fileRemoveCounter > 0)
+        {
+            if (statusLabel) statusLabel->setText(QString::number(fileRemoveCounter) + tr(" RAR Dateien entfernt!"));
+            addLogText(QString::number(fileRemoveCounter) + tr(" RAR Dateien entfernt!"));
+        }
+        else
+        {
+            if (statusLabel) statusLabel->setText(tr("Keine RAR Dateien gelöscht."));
+        }
+
+        watcher->deleteLater();
+        runNextStep(id);
+    });
+
+    watcher->setFuture(future);
 }
+
 
 // unrar files
 void SFDLSauger::unrarFiles(QString id)
@@ -2683,6 +2732,9 @@ void SFDLSauger::processNextUnrarJob(QString id)
         worker->moveToThread(thread);
         g_UnRARExtractor.append(worker);
 
+        connect(worker, &QObject::destroyed, this, [this, worker]() {
+            g_UnRARExtractor.removeAll(worker);
+        });
         connect(worker, &UnrarExtractor::updateUnRarProgress, this, &SFDLSauger::unrarProgressUpdate, Qt::QueuedConnection);
         connect(thread, &QThread::started, worker, &UnrarExtractor::startUnRAR);
         connect(worker, &UnrarExtractor::finished, thread, &QThread::quit);
@@ -2717,6 +2769,10 @@ void SFDLSauger::processNextUnrarJob(QString id)
         auto worker = new UnRAR(data);
         worker->moveToThread(thread);
         g_UnRARWorker.append(worker);
+
+        connect(worker, &QObject::destroyed, this, [this, worker]() {
+            g_UnRARWorker.removeAll(worker);
+        });
 
         connect(worker, &UnRAR::updateUnRarProgress, this, &SFDLSauger::unrarProgressUpdate, Qt::QueuedConnection);
         connect(thread, &QThread::started, worker, &UnRAR::startUnRAR);
@@ -2757,54 +2813,63 @@ void SFDLSauger::unrarProgressUpdate(QString id, QString fileName, int progress)
 // close tab and remove download
 void SFDLSauger::on_tabWidget_tabCloseRequested(int index)
 {
-    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(ui->tabWidget->tabToolTip(index));
+    QString id = ui->tabWidget->tabToolTip(index);
+    QWidget *widget1 = ui->tabWidget->findChild<QWidget *>(id);
+    if(!widget1) return;
+
     QLabel *statusLabel = widget1->findChild<QLabel *>("mStatusText");
 
-    if(widget1->isEnabled() == false && statusLabel->text() != "Fehler! Bitte Logs konsultieren ...")
+    if(widget1->isEnabled() == false && statusLabel && statusLabel->text() != tr("Fehler! Bitte Logs konsultieren ..."))
     {
         addLogText("<font color=\"#e53935\">" + widget1->objectName() + tr(": Einlesen der Daten nicht abgeschlossen! Entfernen erst nach Abschluß möglich.</font>"));
         return;
     }
 
-    // remove tab
     QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, ui->tabWidget->tabToolTip(index), tr("Download wirklich entfernen?"), QMessageBox::Yes | QMessageBox::No);
+    reply = QMessageBox::question(this, id, tr("Download wirklich entfernen?"), QMessageBox::Yes | QMessageBox::No);
 
     if(reply == QMessageBox::Yes)
     {
-        stopDownload();
-
-        QString id = ui->tabWidget->tabToolTip(index);
-
+        stopDownload(id);
         stopAllCrcThreads(id);
 
-        // stop sfv check timers
-        foreach(QTimer* t, g_SFVTimer)
+        for(int i = g_SFVTimer.size() - 1; i >= 0; --i)
         {
-            if(id == t->objectName() && t->isActive())
+            QTimer* t = g_SFVTimer.at(i);
+            if(t && id == t->objectName())
             {
                 t->stop();
+                g_SFVTimer.removeAt(i);
                 t->deleteLater();
             }
         }
 
-        // stop unrar threads for this id
-        foreach(UnRAR* u, g_UnRARWorker)
+        for(int i = g_UnRARWorker.size() - 1; i >= 0; --i)
         {
-            if(id == u->id && u->thread()->isRunning())
+            UnRAR* u = g_UnRARWorker.at(i);
+            if(u && id == u->id)
             {
-                u->thread()->quit();
-                u->thread()->wait();
+                if(u->thread() && u->thread()->isRunning())
+                {
+                    u->thread()->quit();
+                    u->thread()->wait();
+                }
+                g_UnRARWorker.removeAt(i);
                 u->deleteLater();
             }
         }
 
-        foreach(UnrarExtractor* u, g_UnRARExtractor)
+        for(int i = g_UnRARExtractor.size() - 1; i >= 0; --i)
         {
-            if(id == u->id && u->thread()->isRunning())
+            UnrarExtractor* u = g_UnRARExtractor.at(i);
+            if(u && id == u->id)
             {
-                u->thread()->quit();
-                u->thread()->wait();
+                if(u->thread() && u->thread()->isRunning())
+                {
+                    u->thread()->quit();
+                    u->thread()->wait();
+                }
+                g_UnRARExtractor.removeAt(i);
                 u->deleteLater();
             }
         }

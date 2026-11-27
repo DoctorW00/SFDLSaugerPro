@@ -37,7 +37,7 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>-87</y>
+        <y>-1046</y>
         <width>766</width>
         <height>1649</height>
        </rect>
@@ -338,7 +338,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Absoluter Pfad zu UnRAR. Nur erforderlich, integriertes UnRAR NICHT benutzt wird.</string>
+          <string>Absoluter Pfad zu UnRAR. Nur erforderlich, wenn integriertes UnRAR NICHT benutzt wird.</string>
          </property>
         </widget>
        </item>
@@ -463,7 +463,7 @@
        <item row="60" column="1">
         <widget class="QCheckBox" name="chk_shutdown_pc">
          <property name="text">
-          <string>System nach letzem Download herunterfahren</string>
+          <string>System nach letztem Download herunterfahren</string>
          </property>
         </widget>
        </item>
@@ -568,7 +568,7 @@
        <item row="39" column="1">
         <widget class="QCheckBox" name="chk_unrar">
          <property name="text">
-          <string>RAR Dateien autoamtisch auspacken</string>
+          <string>RAR Dateien automatisch auspacken</string>
          </property>
         </widget>
        </item>

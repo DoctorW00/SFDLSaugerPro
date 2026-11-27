@@ -12,6 +12,7 @@
 #include "taskbarprogressmanager.h"
 #include "filewatcher.h"
 #include <QSoundEffect>
+#include <QtConcurrent>
 
 inline void registerMetaTypes()
 {
@@ -126,7 +127,7 @@ private slots:
     void swapStartStopButton(QString id);
     void disableStartStopButton(QString id);
     void startDownload(QString tabID);
-    void stopDownload();
+    void stopDownload(QString id = "");
     bool allDownloadsDone(QString id);
     void chkAllTabDownloadsAreDone();
     void createSpeedreport(QString id);
